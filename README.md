@@ -12,6 +12,22 @@ picoclaw is a small, workspace-driven AI agent that combines an LLM with a set o
 
 ✅ **Easy to adopt**: `onboard` creates a ready-to-edit workspace and config; you can start chatting immediately.
 
+## Install
+
+Prebuilt binaries are published on GitHub Releases (via GoReleaser).
+
+macOS example (Apple Silicon):
+
+```bash
+curl -L -o picoclaw.tar.gz \
+  https://github.com/mosaxiv/picoclaw/releases/latest/download/picoclaw_Darwin_arm64.tar.gz
+tar -xzf picoclaw.tar.gz
+chmod +x picoclaw
+mkdir -p ~/.local/bin
+mv picoclaw ~/.local/bin/
+picoclaw --help
+```
+
 ## Quick Start
 
 ```bash
