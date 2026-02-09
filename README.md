@@ -44,6 +44,55 @@ picoclaw status
 picoclaw agent -m "What is 2+2?"
 ```
 
+## Architecture
+
+```mermaid
+flowchart LR
+    ChatApps["Chat Apps / CLI"]
+
+    %% Agent loop (Message -> LLM <-> Tools -> Response)
+    subgraph Loop["Agent Loop"]
+      Msg[Message]
+      LLM[LLM]
+      Tools[Tools]
+      Resp[Response]
+      Sess["Sessions"]
+    end
+
+    subgraph Ctx["Context"]
+      CtxHub["Files, Memory, Skills"]
+    end
+
+    ChatApps --> Msg
+    Msg --> LLM
+    LLM -->|tool calls| Tools
+    Tools -->|tool results| LLM
+    LLM --> Resp
+
+    Tools <--> CtxHub
+    %% Sessions are internal state (history in/out)
+    Sess -.-> LLM
+    Msg -.-> Sess
+    Resp -.-> Sess
+
+    %% Conversation continues (next turn)
+    Resp --> ChatApps
+    Resp -.-> Msg
+
+    %% Color blocks (similar to the reference diagram)
+    classDef chat fill:#dbeafe,stroke:#60a5fa,color:#111827;
+    classDef msg fill:#fef3c7,stroke:#f59e0b,color:#111827;
+    classDef loop fill:#fed7aa,stroke:#fb923c,color:#111827;
+    classDef resp fill:#fecaca,stroke:#f87171,color:#111827;
+    classDef ctx fill:#e9d5ff,stroke:#a78bfa,color:#111827;
+
+    class ChatApps chat;
+    class Msg msg;
+    class LLM,Tools loop;
+    class Resp resp;
+    class CtxHub,Sess ctx;
+```
+
 ## Workspace (How picoclaw “thinks”)
 
 Default workspace: `~/.picoclaw/workspace` (override with `--workspace` or `PICOCLAW_WORKSPACE`).
