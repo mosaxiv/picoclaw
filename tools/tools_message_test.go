@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/mosaxiv/picoclaw/bus"
+	"github.com/mosaxiv/clawlet/bus"
 )
 
 func TestMessageRequiresExplicitTarget(t *testing.T) {

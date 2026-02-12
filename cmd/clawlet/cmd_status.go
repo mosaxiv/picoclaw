@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mosaxiv/picoclaw/paths"
+	"github.com/mosaxiv/clawlet/paths"
 	"github.com/urfave/cli/v3"
 )
 

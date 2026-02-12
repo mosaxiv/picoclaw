@@ -66,7 +66,7 @@ func (r *Registry) webFetch(ctx context.Context, rawURL string, extractMode stri
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("User-Agent", "picoclaw/0.1")
+	req.Header.Set("User-Agent", "clawlet/0.1")
 	resp, err := client.Do(req)
 	if err != nil {
 		b, _ := json.Marshal(outT{URL: rawURL, Status: 0, Extractor: "error", Truncated: false, Length: 0, Text: "", Error: err.Error()})

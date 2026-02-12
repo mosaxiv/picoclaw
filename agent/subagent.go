@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mosaxiv/picoclaw/bus"
-	"github.com/mosaxiv/picoclaw/llm"
-	"github.com/mosaxiv/picoclaw/tools"
+	"github.com/mosaxiv/clawlet/bus"
+	"github.com/mosaxiv/clawlet/llm"
+	"github.com/mosaxiv/clawlet/tools"
 )
 
 type SubagentManager struct {

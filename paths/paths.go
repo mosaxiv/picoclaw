@@ -11,7 +11,7 @@ func ConfigDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".picoclaw"), nil
+	return filepath.Join(home, ".clawlet"), nil
 }
 
 func ConfigPath() (string, error) {
@@ -26,7 +26,7 @@ func SessionsDir() string {
 	dir, err := ConfigDir()
 	if err != nil {
 		// Should never happen after startup; keep a sane fallback.
-		return ".picoclaw/sessions"
+		return ".clawlet/sessions"
 	}
 	return filepath.Join(dir, "sessions")
 }
@@ -34,7 +34,7 @@ func SessionsDir() string {
 func CronStorePath() string {
 	dir, err := ConfigDir()
 	if err != nil {
-		return ".picoclaw/cron.json"
+		return ".clawlet/cron.json"
 	}
 	return filepath.Join(dir, "cron.json")
 }
@@ -42,7 +42,7 @@ func CronStorePath() string {
 func WorkspaceDir() string {
 	dir, err := ConfigDir()
 	if err != nil {
-		return ".picoclaw/workspace"
+		return ".clawlet/workspace"
 	}
 	return filepath.Join(dir, "workspace")
 }

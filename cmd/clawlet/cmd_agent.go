@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mosaxiv/picoclaw/agent"
+	"github.com/mosaxiv/clawlet/agent"
 	"github.com/urfave/cli/v3"
 )
 
@@ -19,7 +19,7 @@ func cmdAgent() *cli.Command {
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "message", Aliases: []string{"m"}, Usage: "single message (non-interactive)"},
 			&cli.StringFlag{Name: "session", Aliases: []string{"s"}, Value: "cli:default", Usage: "session key"},
-			&cli.StringFlag{Name: "workspace", Usage: "workspace directory (default: ~/.picoclaw/workspace or PICOCLAW_WORKSPACE)"},
+			&cli.StringFlag{Name: "workspace", Usage: "workspace directory (default: ~/.clawlet/workspace or CLAWLET_WORKSPACE)"},
 			&cli.IntFlag{Name: "max-iters", Value: 20, Usage: "max tool-call iterations"},
 			&cli.BoolFlag{Name: "verbose", Aliases: []string{"v"}, Usage: "verbose (print tool calls)"},
 		},

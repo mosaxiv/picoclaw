@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/mosaxiv/picoclaw/bus"
+	"github.com/mosaxiv/clawlet/bus"
 )
 
 type Channel interface {

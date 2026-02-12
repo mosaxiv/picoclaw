@@ -10,7 +10,7 @@ import (
 
 func main() {
 	root := &cli.Command{
-		Name:  "picoclaw",
+		Name:  "clawlet",
 		Usage: "minimal Go agent",
 		Commands: []*cli.Command{
 			cmdOnboard(),

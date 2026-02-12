@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mosaxiv/picoclaw/config"
-	"github.com/mosaxiv/picoclaw/paths"
+	"github.com/mosaxiv/clawlet/config"
+	"github.com/mosaxiv/clawlet/paths"
 )
 
 func loadConfig() (*config.Config, string, error) {
@@ -17,7 +17,7 @@ func loadConfig() (*config.Config, string, error) {
 	}
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
-		return nil, cfgPath, fmt.Errorf("failed to load config: %s\nhint: run `picoclaw onboard`\n%w", cfgPath, err)
+		return nil, cfgPath, fmt.Errorf("failed to load config: %s\nhint: run `clawlet onboard`\n%w", cfgPath, err)
 	}
 
 	applyEnvOverrides(cfg)
@@ -31,40 +31,40 @@ func loadConfig() (*config.Config, string, error) {
 }
 
 func applyEnvOverrides(cfg *config.Config) {
-	if v := os.Getenv("PICOCLAW_API_KEY"); v != "" {
+	if v := os.Getenv("CLAWLET_API_KEY"); v != "" {
 		cfg.LLM.APIKey = v
 	}
-	if v := os.Getenv("PICOCLAW_BASE_URL"); v != "" {
+	if v := os.Getenv("CLAWLET_BASE_URL"); v != "" {
 		cfg.LLM.BaseURL = v
 	}
-	if v := os.Getenv("PICOCLAW_MODEL"); v != "" {
+	if v := os.Getenv("CLAWLET_MODEL"); v != "" {
 		cfg.Agents.Defaults.Model = v
 	}
-	if v := os.Getenv("PICOCLAW_OPENAI_API_KEY"); v != "" {
+	if v := os.Getenv("CLAWLET_OPENAI_API_KEY"); v != "" {
 		if cfg.Env == nil {
 			cfg.Env = map[string]string{}
 		}
 		cfg.Env["OPENAI_API_KEY"] = v
 	}
-	if v := os.Getenv("PICOCLAW_OPENROUTER_API_KEY"); v != "" {
+	if v := os.Getenv("CLAWLET_OPENROUTER_API_KEY"); v != "" {
 		if cfg.Env == nil {
 			cfg.Env = map[string]string{}
 		}
 		cfg.Env["OPENROUTER_API_KEY"] = v
 	}
-	if v := os.Getenv("PICOCLAW_ANTHROPIC_API_KEY"); v != "" {
+	if v := os.Getenv("CLAWLET_ANTHROPIC_API_KEY"); v != "" {
 		if cfg.Env == nil {
 			cfg.Env = map[string]string{}
 		}
 		cfg.Env["ANTHROPIC_API_KEY"] = v
 	}
-	if v := os.Getenv("PICOCLAW_GEMINI_API_KEY"); v != "" {
+	if v := os.Getenv("CLAWLET_GEMINI_API_KEY"); v != "" {
 		if cfg.Env == nil {
 			cfg.Env = map[string]string{}
 		}
 		cfg.Env["GEMINI_API_KEY"] = v
 	}
-	if v := os.Getenv("PICOCLAW_GOOGLE_API_KEY"); v != "" {
+	if v := os.Getenv("CLAWLET_GOOGLE_API_KEY"); v != "" {
 		if cfg.Env == nil {
 			cfg.Env = map[string]string{}
 		}
@@ -109,7 +109,7 @@ func applyEnvOverrides(cfg *config.Config) {
 func resolveWorkspace(flagValue string) (string, error) {
 	ws := strings.TrimSpace(flagValue)
 	if ws == "" {
-		if v := strings.TrimSpace(os.Getenv("PICOCLAW_WORKSPACE")); v != "" {
+		if v := strings.TrimSpace(os.Getenv("CLAWLET_WORKSPACE")); v != "" {
 			ws = v
 		} else {
 			ws = paths.WorkspaceDir()

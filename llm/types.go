@@ -3,7 +3,7 @@ package llm
 import "encoding/json"
 
 // Message is an OpenAI-compatible chat message.
-// We only model the fields picoclaw needs.
+// We only model the fields clawlet needs.
 type Message struct {
 	Role       string            `json:"role"`
 	Content    string            `json:"content,omitempty"`

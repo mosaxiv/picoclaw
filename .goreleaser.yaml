@@ -16,9 +16,9 @@ before:
     - go generate ./...
 
 builds:
-  - id: picoclaw
-    main: ./cmd/picoclaw
-    binary: picoclaw
+  - id: clawlet
+    main: ./cmd/clawlet
+    binary: clawlet
     env:
       - CGO_ENABLED=0
     goos:

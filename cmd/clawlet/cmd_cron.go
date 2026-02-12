@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mosaxiv/picoclaw/cron"
-	"github.com/mosaxiv/picoclaw/paths"
+	"github.com/mosaxiv/clawlet/cron"
+	"github.com/mosaxiv/clawlet/paths"
 	"github.com/urfave/cli/v3"
 )
 
@@ -120,7 +120,7 @@ func cronRemoveCmd() *cli.Command {
 				return err
 			}
 			if cmd.Args().Len() < 1 {
-				return cli.Exit("usage: picoclaw cron remove <job_id>", 2)
+				return cli.Exit("usage: clawlet cron remove <job_id>", 2)
 			}
 			id := cmd.Args().Get(0)
 			svc := cron.NewService(paths.CronStorePath(), nil)
@@ -148,7 +148,7 @@ func cronToggleCmd() *cli.Command {
 				return err
 			}
 			if cmd.Args().Len() < 1 {
-				return cli.Exit("usage: picoclaw cron toggle [--disable] <job_id>", 2)
+				return cli.Exit("usage: clawlet cron toggle [--disable] <job_id>", 2)
 			}
 			id := cmd.Args().Get(0)
 			svc := cron.NewService(paths.CronStorePath(), nil)
@@ -180,7 +180,7 @@ func cronRunCmd() *cli.Command {
 				return err
 			}
 			if cmd.Args().Len() < 1 {
-				return cli.Exit("usage: picoclaw cron run [--force] <job_id>", 2)
+				return cli.Exit("usage: clawlet cron run [--force] <job_id>", 2)
 			}
 			id := cmd.Args().Get(0)
 			svc := cron.NewService(paths.CronStorePath(), nil)

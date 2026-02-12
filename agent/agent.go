@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mosaxiv/picoclaw/config"
-	"github.com/mosaxiv/picoclaw/llm"
-	"github.com/mosaxiv/picoclaw/memory"
-	"github.com/mosaxiv/picoclaw/paths"
-	"github.com/mosaxiv/picoclaw/session"
-	"github.com/mosaxiv/picoclaw/skills"
-	"github.com/mosaxiv/picoclaw/tools"
+	"github.com/mosaxiv/clawlet/config"
+	"github.com/mosaxiv/clawlet/llm"
+	"github.com/mosaxiv/clawlet/memory"
+	"github.com/mosaxiv/clawlet/paths"
+	"github.com/mosaxiv/clawlet/session"
+	"github.com/mosaxiv/clawlet/skills"
+	"github.com/mosaxiv/clawlet/tools"
 )
 
 type Options struct {
@@ -171,8 +171,8 @@ func (a *Agent) systemPrompt() string {
 	rt := fmt.Sprintf("%s/%s Go %s", runtime.GOOS, runtime.GOARCH, runtime.Version())
 
 	var b strings.Builder
-	b.WriteString("# picoclaw\n\n")
-	b.WriteString("You are picoclaw, a helpful AI assistant.\n")
+	b.WriteString("# clawlet\n\n")
+	b.WriteString("You are clawlet, a helpful AI assistant.\n")
 	b.WriteString("You can use tools to read/write/edit files, list directories, execute shell commands, and fetch/search the web.\n\n")
 	b.WriteString("IMPORTANT: Reply with plain text. Do not call the message tool.\n\n")
 	b.WriteString("## Current Time\n")

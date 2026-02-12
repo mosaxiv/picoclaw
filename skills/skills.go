@@ -210,7 +210,7 @@ func summarize(meta map[string]string) (desc string, available bool, requires st
 	if err := json.Unmarshal([]byte(raw), &outer); err != nil {
 		return desc, available, requires
 	}
-	metaKey, _ := outer["picoclaw"].(map[string]any)
+	metaKey, _ := outer["clawlet"].(map[string]any)
 	if metaKey == nil && len(outer) == 1 {
 		// Backward compatibility for older skills: accept a single unknown namespace.
 		for _, v := range outer {

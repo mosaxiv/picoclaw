@@ -1,6 +1,6 @@
-# picoclaw Skills
+# clawlet Skills
 
-This directory contains built-in skills that extend picoclaw's capabilities.
+This directory contains built-in skills that extend clawlet's capabilities.
 
 ## Skill Format
 

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mosaxiv/picoclaw/bus"
-	"github.com/mosaxiv/picoclaw/cron"
-	"github.com/mosaxiv/picoclaw/llm"
+	"github.com/mosaxiv/clawlet/bus"
+	"github.com/mosaxiv/clawlet/cron"
+	"github.com/mosaxiv/clawlet/llm"
 )
 
 type Context struct {

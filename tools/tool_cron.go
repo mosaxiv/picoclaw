@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mosaxiv/picoclaw/cron"
+	"github.com/mosaxiv/clawlet/cron"
 )
 
 func (r *Registry) cronTool(ctx context.Context, tctx Context, action, message string, everySeconds int, cronExpr, jobID string) (string, error) {

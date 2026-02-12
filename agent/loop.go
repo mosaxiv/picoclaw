@@ -9,14 +9,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mosaxiv/picoclaw/bus"
-	"github.com/mosaxiv/picoclaw/config"
-	"github.com/mosaxiv/picoclaw/cron"
-	"github.com/mosaxiv/picoclaw/llm"
-	"github.com/mosaxiv/picoclaw/memory"
-	"github.com/mosaxiv/picoclaw/session"
-	"github.com/mosaxiv/picoclaw/skills"
-	"github.com/mosaxiv/picoclaw/tools"
+	"github.com/mosaxiv/clawlet/bus"
+	"github.com/mosaxiv/clawlet/config"
+	"github.com/mosaxiv/clawlet/cron"
+	"github.com/mosaxiv/clawlet/llm"
+	"github.com/mosaxiv/clawlet/memory"
+	"github.com/mosaxiv/clawlet/session"
+	"github.com/mosaxiv/clawlet/skills"
+	"github.com/mosaxiv/clawlet/tools"
 )
 
 type Loop struct {
@@ -243,8 +243,8 @@ func (l *Loop) processDirect(ctx context.Context, content, sessionKey, channel, 
 func (l *Loop) buildSystemPrompt(channel, chatID string) string {
 	// Keep it simple and deterministic. Add progressive skill summary.
 	var b strings.Builder
-	b.WriteString("# picoclaw\n\n")
-	b.WriteString("You are picoclaw, a helpful AI assistant.\n")
+	b.WriteString("# clawlet\n\n")
+	b.WriteString("You are clawlet, a helpful AI assistant.\n")
 	b.WriteString("You can use tools to read/write/edit files, list directories, execute shell commands, fetch/search the web, schedule tasks, and spawn background subagents.\n\n")
 	b.WriteString("IMPORTANT: When replying to the current conversation, respond with plain text. Do not call the message tool.\n")
 	b.WriteString("Only use the message tool when you must send to a different channel/chat_id.\n\n")

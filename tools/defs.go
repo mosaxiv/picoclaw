@@ -1,6 +1,6 @@
 package tools
 
-import "github.com/mosaxiv/picoclaw/llm"
+import "github.com/mosaxiv/clawlet/llm"
 
 func defReadFile() llm.ToolDefinition {
 	return llm.ToolDefinition{

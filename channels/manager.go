@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/mosaxiv/picoclaw/bus"
+	"github.com/mosaxiv/clawlet/bus"
 )
 
 type Manager struct {

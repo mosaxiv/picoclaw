@@ -11,7 +11,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/mosaxiv/picoclaw/paths"
+	"github.com/mosaxiv/clawlet/paths"
 	"github.com/urfave/cli/v3"
 )
 
@@ -24,7 +24,7 @@ func cmdOnboard() *cli.Command {
 		Usage: "initialize config and workspace scaffolding",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "overwrite", Usage: "overwrite existing config if present"},
-			&cli.StringFlag{Name: "workspace", Usage: "workspace directory to initialize (default: ~/.picoclaw/workspace or PICOCLAW_WORKSPACE)"},
+			&cli.StringFlag{Name: "workspace", Usage: "workspace directory to initialize (default: ~/.clawlet/workspace or CLAWLET_WORKSPACE)"},
 			&cli.StringFlag{Name: "model", Usage: "set agents.defaults.model (e.g. openrouter/anthropic/claude-sonnet-4-5)"},
 			&cli.StringFlag{Name: "openrouter-api-key", Usage: "write env.OPENROUTER_API_KEY into config.json"},
 			&cli.StringFlag{Name: "openai-api-key", Usage: "write env.OPENAI_API_KEY into config.json"},
@@ -97,7 +97,7 @@ func saveMinimalConfig(path string, model string, openrouterKey string, openaiKe
 		}
 	}
 
-	// If no flags are provided, write an empty object and let picoclaw defaults apply.
+	// If no flags are provided, write an empty object and let clawlet defaults apply.
 	if len(root) == 0 {
 		root = map[string]any{}
 	}
@@ -125,7 +125,7 @@ func initWorkspace(dir string) error {
 		AgentName         string
 		HeartbeatInterval string
 	}{
-		AgentName:         "picoclaw",
+		AgentName:         "clawlet",
 		HeartbeatInterval: "30m",
 	}
 

@@ -1,4 +1,4 @@
-module github.com/mosaxiv/picoclaw
+module github.com/mosaxiv/clawlet
 
 go 1.26.0
 

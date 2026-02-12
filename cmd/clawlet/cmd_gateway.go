@@ -7,15 +7,15 @@ import (
 	"os/signal"
 	"strings"
 
-	"github.com/mosaxiv/picoclaw/agent"
-	"github.com/mosaxiv/picoclaw/bus"
-	"github.com/mosaxiv/picoclaw/channels"
-	"github.com/mosaxiv/picoclaw/channels/discord"
-	"github.com/mosaxiv/picoclaw/channels/slack"
-	"github.com/mosaxiv/picoclaw/cron"
-	"github.com/mosaxiv/picoclaw/heartbeat"
-	"github.com/mosaxiv/picoclaw/paths"
-	"github.com/mosaxiv/picoclaw/session"
+	"github.com/mosaxiv/clawlet/agent"
+	"github.com/mosaxiv/clawlet/bus"
+	"github.com/mosaxiv/clawlet/channels"
+	"github.com/mosaxiv/clawlet/channels/discord"
+	"github.com/mosaxiv/clawlet/channels/slack"
+	"github.com/mosaxiv/clawlet/cron"
+	"github.com/mosaxiv/clawlet/heartbeat"
+	"github.com/mosaxiv/clawlet/paths"
+	"github.com/mosaxiv/clawlet/session"
 	"github.com/urfave/cli/v3"
 )
 
@@ -24,7 +24,7 @@ func cmdGateway() *cli.Command {
 		Name:  "gateway",
 		Usage: "run the long-lived agent gateway (channels + cron + heartbeat)",
 		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "workspace", Usage: "workspace directory (default: ~/.picoclaw/workspace or PICOCLAW_WORKSPACE)"},
+			&cli.StringFlag{Name: "workspace", Usage: "workspace directory (default: ~/.clawlet/workspace or CLAWLET_WORKSPACE)"},
 			&cli.IntFlag{Name: "max-iters", Value: 20, Usage: "max tool-call iterations"},
 			&cli.BoolFlag{Name: "verbose", Aliases: []string{"v"}, Usage: "verbose"},
 		},

@@ -9,9 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/mosaxiv/picoclaw/bus"
-	"github.com/mosaxiv/picoclaw/channels"
-	"github.com/mosaxiv/picoclaw/config"
+	"github.com/mosaxiv/clawlet/bus"
+	"github.com/mosaxiv/clawlet/channels"
+	"github.com/mosaxiv/clawlet/config"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 	"github.com/slack-go/slack/socketmode"

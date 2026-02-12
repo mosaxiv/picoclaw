@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mosaxiv/picoclaw/bus"
+	"github.com/mosaxiv/clawlet/bus"
 )
 
 func (r *Registry) message(ctx context.Context, channel, chatID, content string) (string, error) {

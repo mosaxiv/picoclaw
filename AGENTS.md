@@ -2,7 +2,7 @@
 
 ## Project Structure
 
-- `cmd/picoclaw/`: CLI entrypoint (`picoclaw agent`, `gateway`, `onboard`, `cron`, etc.)
+- `cmd/clawlet/`: CLI entrypoint (`clawlet agent`, `gateway`, `onboard`, `cron`, etc.)
 - Core modules: `agent/`, `tools/`, `llm/`, `channels/`, `bus/`, `session/`, `memory/`, `skills/`
 - Config and state helpers: `config/`, `paths/`
 - Tests live next to code as `*_test.go` (e.g. `tools/`, `config/`, `heartbeat/`).
@@ -11,11 +11,11 @@
 
 ```bash
 # Build a local binary
-go build -o picoclaw ./cmd/picoclaw
+go build -o clawlet ./cmd/clawlet
 
 # Run from source
-go run ./cmd/picoclaw --help
-go run ./cmd/picoclaw agent -m "hello"
+go run ./cmd/clawlet --help
+go run ./cmd/clawlet agent -m "hello"
 
 # Test and basic static checks
 go fix ./...

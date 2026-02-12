@@ -1,7 +1,7 @@
 ---
 name: tmux
 description: Remote-control tmux sessions for interactive CLIs by sending keystrokes and scraping pane output.
-metadata: {"picoclaw":{"emoji":"🧵","os":["darwin","linux"],"requires":{"bins":["tmux"]}}}
+metadata: {"clawlet":{"emoji":"🧵","os":["darwin","linux"],"requires":{"bins":["tmux"]}}}
 ---
 
 # tmux Skill
@@ -11,10 +11,10 @@ Use tmux only when you need an interactive TTY. Prefer exec background mode for 
 ## Quickstart (isolated socket, exec tool)
 
 ```bash
-SOCKET_DIR="${PICOCLAW_TMUX_SOCKET_DIR:-${TMPDIR:-/tmp}/picoclaw-tmux-sockets}"
+SOCKET_DIR="${CLAWLET_TMUX_SOCKET_DIR:-${TMPDIR:-/tmp}/clawlet-tmux-sockets}"
 mkdir -p "$SOCKET_DIR"
-SOCKET="$SOCKET_DIR/picoclaw.sock"
-SESSION=picoclaw
+SOCKET="$SOCKET_DIR/clawlet.sock"
+SESSION=clawlet
 
 tmux -S "$SOCKET" new -d -s "$SESSION" -n shell
 tmux -S "$SOCKET" send-keys -t "$SESSION":0.0 -- 'PYTHON_BASIC_REPL=1 python3 -q' Enter
@@ -31,8 +31,8 @@ To monitor:
 
 ## Socket convention
 
-- Use `PICOCLAW_TMUX_SOCKET_DIR` environment variable.
-- Default socket path: `"$PICOCLAW_TMUX_SOCKET_DIR/picoclaw.sock"`.
+- Use `CLAWLET_TMUX_SOCKET_DIR` environment variable.
+- Default socket path: `"$CLAWLET_TMUX_SOCKET_DIR/clawlet.sock"`.
 
 ## Targeting panes and naming
 
@@ -43,7 +43,7 @@ To monitor:
 ## Finding sessions
 
 - List sessions on your socket: `{baseDir}/scripts/find-sessions.sh -S "$SOCKET"`.
-- Scan all sockets: `{baseDir}/scripts/find-sessions.sh --all` (uses `PICOCLAW_TMUX_SOCKET_DIR`).
+- Scan all sockets: `{baseDir}/scripts/find-sessions.sh --all` (uses `CLAWLET_TMUX_SOCKET_DIR`).
 
 ## Sending input safely
 

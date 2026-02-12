@@ -1,11 +1,11 @@
 <div align="center">
-  <img src="picoclaw.png" alt="picoclaw" width="500">
-  <h1>picoclaw: Lightweight Personal AI Assistant <br>Single Binary, Simple Setup</h1>
+  <img src="clawlet.png" alt="clawlet" width="500">
+  <h1>clawlet: Lightweight Personal AI Assistant <br>Single Binary, Simple Setup</h1>
 </div>
 
 This project is inspired by **OpenClaw** and **nanobot**.
 
-## Why picoclaw
+## Why clawlet
 
 📦 **Single binary, small footprint**: Runs as one executable with minimal moving parts.
 
@@ -20,28 +20,28 @@ Prebuilt binaries are published on GitHub Releases (via GoReleaser).
 macOS example (Apple Silicon):
 
 ```bash
-curl -L -o picoclaw.tar.gz \
-  https://github.com/mosaxiv/picoclaw/releases/latest/download/picoclaw_Darwin_arm64.tar.gz
-tar -xzf picoclaw.tar.gz
-chmod +x picoclaw
+curl -L -o clawlet.tar.gz \
+  https://github.com/mosaxiv/clawlet/releases/latest/download/clawlet_Darwin_arm64.tar.gz
+tar -xzf clawlet.tar.gz
+chmod +x clawlet
 mkdir -p ~/.local/bin
-mv picoclaw ~/.local/bin/
-picoclaw --help
+mv clawlet ~/.local/bin/
+clawlet --help
 ```
 
 ## Quick Start
 
 ```bash
 # Initialize
-picoclaw onboard \
+clawlet onboard \
   --openrouter-api-key "sk-or-..." \
   --model "openrouter/anthropic/claude-sonnet-4.5"
 
 # Check effective configuration
-picoclaw status
+clawlet status
 
 # Chat
-picoclaw agent -m "What is 2+2?"
+clawlet agent -m "What is 2+2?"
 ```
 
 ## Architecture
@@ -93,9 +93,9 @@ flowchart LR
     class CtxHub,Sess ctx;
 ```
 
-## Workspace (How picoclaw “thinks”)
+## Workspace (How clawlet “thinks”)
 
-Default workspace: `~/.picoclaw/workspace` (override with `--workspace` or `PICOCLAW_WORKSPACE`).
+Default workspace: `~/.clawlet/workspace` (override with `--workspace` or `CLAWLET_WORKSPACE`).
 
 Files in the workspace are automatically injected into the system prompt when present:
 
@@ -107,13 +107,13 @@ Files in the workspace are automatically injected into the system prompt when pr
 
 This matches the “workspace-first” style: you control behavior by editing small, versionable text files.
 
-## Configuration (`~/.picoclaw/config.json`)
+## Configuration (`~/.clawlet/config.json`)
 
-Config file: `~/.picoclaw/config.json`
+Config file: `~/.clawlet/config.json`
 
 ### Supported providers
 
-picoclaw currently supports these LLM providers:
+clawlet currently supports these LLM providers:
 
 - **OpenAI** (`openai/<model>`, API key: `env.OPENAI_API_KEY`)
 - **OpenRouter** (`openrouter/<provider>/<model>`, API key: `env.OPENROUTER_API_KEY`)
@@ -161,11 +161,11 @@ Minimal config (Local via vLLM using the same `ollama/` route):
 }
 ```
 
-picoclaw will fill in sensible defaults for missing sections (tools, gateway, cron, heartbeat, channels).
+clawlet will fill in sensible defaults for missing sections (tools, gateway, cron, heartbeat, channels).
 
 ### Safety defaults
 
-picoclaw is conservative by default:
+clawlet is conservative by default:
 
 - `tools.restrictToWorkspace` defaults to `true` (tools can only access files inside the workspace directory)
 
@@ -188,10 +188,10 @@ In the Developer Portal bot settings, enable **MESSAGE CONTENT INTENT**. Without
 4. Get your User ID (for allowFrom)
 Enable Developer Mode in Discord settings, then right-click your profile and select `Copy User ID`.
 
-5. Configure picoclaw
+5. Configure clawlet
 `channels.discord.allowFrom` is the list of user IDs allowed to talk to the agent (empty = allow everyone).
 
-Example config (merge into `~/.picoclaw/config.json`):
+Example config (merge into `~/.clawlet/config.json`):
 
 ```json
 {
@@ -208,7 +208,7 @@ Example config (merge into `~/.picoclaw/config.json`):
 6. Run
 
 ```bash
-picoclaw gateway
+clawlet gateway
 ```
 
 </details>
@@ -216,7 +216,7 @@ picoclaw gateway
 <details>
 <summary><b>Slack</b></summary>
 
-Uses **Socket Mode** (no public URL required). picoclaw currently supports Socket Mode only.
+Uses **Socket Mode** (no public URL required). clawlet currently supports Socket Mode only.
 
 1. Create a Slack app
 2. Configure the app:
@@ -228,7 +228,7 @@ Uses **Socket Mode** (no public URL required). picoclaw currently supports Socke
    - groupPolicy: "mention" (default — respond only when @mentioned), "open" (respond to all channel messages), or "allowlist" (restrict to specific channels).
    - DM policy defaults to open. Set "dm": {"enabled": false} to disable DMs.
 
-Example config (merge into `~/.picoclaw/config.json`):
+Example config (merge into `~/.clawlet/config.json`):
 
 ```json
 {
@@ -247,7 +247,7 @@ Example config (merge into `~/.picoclaw/config.json`):
 Then run:
 
 ```bash
-picoclaw gateway
+clawlet gateway
 ```
 
 </details>
@@ -256,31 +256,31 @@ picoclaw gateway
 
 | Command | Description |
 | --- | --- |
-| `picoclaw onboard` | Initialize a workspace and write a minimal config. |
-| `picoclaw status` | Print the effective configuration (after defaults and routing). |
-| `picoclaw agent` | Run the agent in CLI mode (interactive or single message). |
-| `picoclaw gateway` | Run the long-lived gateway (channels + cron + heartbeat). |
-| `picoclaw channels status` | Show which chat channels are enabled/configured. |
-| `picoclaw cron list` | List scheduled jobs. |
-| `picoclaw cron add` | Add a scheduled job. |
-| `picoclaw cron remove` | Remove a scheduled job. |
-| `picoclaw cron toggle` | Enable/disable a scheduled job. |
-| `picoclaw cron run` | Run a job immediately. |
+| `clawlet onboard` | Initialize a workspace and write a minimal config. |
+| `clawlet status` | Print the effective configuration (after defaults and routing). |
+| `clawlet agent` | Run the agent in CLI mode (interactive or single message). |
+| `clawlet gateway` | Run the long-lived gateway (channels + cron + heartbeat). |
+| `clawlet channels status` | Show which chat channels are enabled/configured. |
+| `clawlet cron list` | List scheduled jobs. |
+| `clawlet cron add` | Add a scheduled job. |
+| `clawlet cron remove` | Remove a scheduled job. |
+| `clawlet cron toggle` | Enable/disable a scheduled job. |
+| `clawlet cron run` | Run a job immediately. |
 
-### `picoclaw cron add` formats
+### `clawlet cron add` formats
 
 `--message` is required, and exactly one of `--every`, `--cron`, or `--at` must be set.
 
 ```bash
 # Every N seconds
-picoclaw cron add --message "summarize my inbox" --every 3600
+clawlet cron add --message "summarize my inbox" --every 3600
 
 # Cron expression (5-field)
-picoclaw cron add --message "daily standup notes" --cron "0 9 * * 1-5"
+clawlet cron add --message "daily standup notes" --cron "0 9 * * 1-5"
 
 # Run once at a specific time (RFC3339)
-picoclaw cron add --message "remind me" --at "2026-02-10T09:00:00Z"
+clawlet cron add --message "remind me" --at "2026-02-10T09:00:00Z"
 
 # Deliver to a chat (requires both --channel and --to)
-picoclaw cron add --message "ping" --every 600 --channel slack --to U012345
+clawlet cron add --message "ping" --every 600 --channel slack --to U012345
 ```
