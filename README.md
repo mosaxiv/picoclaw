@@ -7,7 +7,7 @@ This project is inspired by **OpenClaw** and **nanobot**.
 
 ## Why Clawlet
 
-⚡ **Fast and lightweight**: Runs quickly with minimal CPU and memory usage — comfortable even on low-spec machines.  
+⚡ **Fast and lightweight**: Runs quickly with minimal CPU and memory usage.  
 📦 **Single binary**: One executable, no dependencies, no configuration needed.  
 📖 **Readable codebase**: Clean and straightforward structure — easy to understand, modify, and extend.  
 
