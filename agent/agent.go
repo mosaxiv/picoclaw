@@ -129,22 +129,7 @@ func (a *Agent) Process(ctx context.Context, input string) (string, error) {
 		}
 
 		if res.HasToolCalls() {
-			// Add assistant message with tool calls (OpenAI expects arguments as JSON string, but
-			// many servers accept object; we keep it string for compatibility).
-			tcs := make([]llm.ToolCallPayload, 0, len(res.ToolCalls))
-			for _, tc := range res.ToolCalls {
-				tcs = append(tcs, llm.ToolCallPayload{
-					ID:   tc.ID,
-					Type: "function",
-					Function: llm.ToolCallPayloadFunc{
-						Name:      tc.Name,
-						Arguments: string(tc.Arguments),
-					},
-				})
-			}
-			messages = append(messages, llm.Message{Role: "assistant", Content: res.Content, ToolCalls: tcs})
-
-			for _, tc := range res.ToolCalls {
+			messages = appendToolRound(messages, res.Content, res.ToolCalls, func(tc llm.ToolCall) string {
 				if a.verbose {
 					fmt.Fprintf(os.Stderr, "tool: %s %s\n", tc.Name, previewJSON(tc.Arguments, 200))
 				}
@@ -154,10 +139,10 @@ func (a *Agent) Process(ctx context.Context, input string) (string, error) {
 					SessionKey: a.sess.Key,
 				}, tc.Name, tc.Arguments)
 				if err != nil {
-					out = "error: " + err.Error()
+					return "error: " + err.Error()
 				}
-				messages = append(messages, llm.Message{Role: "tool", ToolCallID: tc.ID, Name: tc.Name, Content: out})
-			}
+				return out
+			})
 			continue
 		}
 

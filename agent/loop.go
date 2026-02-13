@@ -215,29 +215,17 @@ func (l *Loop) processDirect(ctx context.Context, content, sessionKey, channel, 
 			return "", err
 		}
 		if res.HasToolCalls() {
-			tcs := make([]llm.ToolCallPayload, 0, len(res.ToolCalls))
-			for _, tc := range res.ToolCalls {
-				tcs = append(tcs, llm.ToolCallPayload{
-					ID:   tc.ID,
-					Type: "function",
-					Function: llm.ToolCallPayloadFunc{
-						Name:      tc.Name,
-						Arguments: string(tc.Arguments),
-					},
-				})
-			}
-			messages = append(messages, llm.Message{Role: "assistant", Content: res.Content, ToolCalls: tcs})
-			for _, tc := range res.ToolCalls {
+			messages = appendToolRound(messages, res.Content, res.ToolCalls, func(tc llm.ToolCall) string {
 				out, err := l.tools.Execute(ctx, tools.Context{
 					Channel:    channel,
 					ChatID:     chatID,
 					SessionKey: sessionKey,
 				}, tc.Name, tc.Arguments)
 				if err != nil {
-					out = "error: " + err.Error()
+					return "error: " + err.Error()
 				}
-				messages = append(messages, llm.Message{Role: "tool", ToolCallID: tc.ID, Name: tc.Name, Content: out})
-			}
+				return out
+			})
 			continue
 		}
 		final = res.Content
