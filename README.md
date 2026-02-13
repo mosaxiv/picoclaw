@@ -166,6 +166,86 @@ clawlet is conservative by default:
 Chat app integrations are configured under `channels` (examples below).
 
 <details>
+<summary><b>Telegram</b></summary>
+
+Uses **Telegram Bot API long polling** (`getUpdates`) so no public webhook endpoint is required.
+
+1. Create a bot with `@BotFather` and copy the bot token.
+2. (Optional but recommended) Restrict access with `allowFrom`.
+   - Telegram numeric user ID works best.
+   - Username is also supported (without `@`).
+
+Example config (merge into `~/.clawlet/config.json`):
+
+```json
+{
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "token": "123456:ABCDEF...",
+      "allowFrom": ["123456789"],
+      "pollTimeoutSec": 25
+    }
+  }
+}
+```
+
+Then run:
+
+```bash
+clawlet gateway
+```
+
+</details>
+
+<details>
+<summary><b>WhatsApp (Cloud API)</b></summary>
+
+Uses **WhatsApp Cloud API** for outbound messages and a local webhook server for inbound events.
+
+1. In Meta for Developers:
+   - Create/select a Meta app with WhatsApp.
+   - Get `phoneNumberId`.
+   - Get an access token.
+2. Configure webhook in Meta:
+   - Callback URL: your public URL mapped to `webhookListen + webhookPath`.
+   - Verify token: same value as `channels.whatsapp.verifyToken`.
+3. (Recommended) Set `appSecret` to validate `X-Hub-Signature-256`.
+4. (Recommended) Set `allowFrom` with trusted WhatsApp user IDs (wa_id).
+
+Example config (merge into `~/.clawlet/config.json`):
+
+```json
+{
+  "channels": {
+    "whatsapp": {
+      "enabled": true,
+      "accessToken": "EAAG...",
+      "phoneNumberId": "123456789012345",
+      "apiVersion": "v23.0",
+      "verifyToken": "change-me",
+      "appSecret": "your-app-secret",
+      "webhookListen": "127.0.0.1:18791",
+      "webhookPath": "/whatsapp/webhook",
+      "allowFrom": ["15551234567"]
+    }
+  }
+}
+```
+
+Then run:
+
+```bash
+clawlet gateway
+```
+
+Notes:
+- `429` / `5xx` responses are retried with exponential backoff.
+- If Meta webhook must reach your machine, expose the webhook endpoint via a reverse proxy/tunnel and keep `verifyToken`/`appSecret` enabled.
+
+</details>
+
+<details>
 <summary><b>Discord</b></summary>
 
 1. Create the bot and copy the token
