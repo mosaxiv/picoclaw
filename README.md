@@ -1,6 +1,6 @@
 <div align="center">
   <img src="clawlet.png" alt="clawlet" width="500">
-  <h1>Clawlet: Lightweight Personal AI Assistant</h1>
+  <h1>Clawlet: Ultra-Lightweight&Efficient Personal AI Assistant</h1>
 </div>
 
 This project is inspired by **OpenClaw** and **nanobot**.
