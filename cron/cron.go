@@ -11,8 +11,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	robcron "github.com/robfig/cron/v3"
 )
 
 type Schedule struct {
@@ -64,8 +62,6 @@ type Service struct {
 	running bool
 	timer   *time.Timer
 }
-
-var cronExprCache sync.Map // map[string]robcron.Schedule
 
 func NewService(storePath string, onJob func(ctx context.Context, job Job) (string, error)) *Service {
 	return &Service{
@@ -170,17 +166,18 @@ func (s *Service) Toggle(id string, disable bool) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	_ = s.loadLocked()
+	now := nowMS()
 	for i := range s.store.Jobs {
 		if s.store.Jobs[i].ID != id {
 			continue
 		}
 		s.store.Jobs[i].Enabled = !disable
 		if s.store.Jobs[i].Enabled {
-			s.store.Jobs[i].State.NextRunAtMS = computeNextRunMS(s.store.Jobs[i].Schedule, nowMS())
+			s.store.Jobs[i].State.NextRunAtMS = computeNextRunMS(s.store.Jobs[i].Schedule, now)
 		} else {
 			s.store.Jobs[i].State.NextRunAtMS = 0
 		}
-		s.store.Jobs[i].UpdatedAtMS = nowMS()
+		s.store.Jobs[i].UpdatedAtMS = now
 		_ = s.saveLocked()
 		return true
 	}
@@ -273,6 +270,7 @@ func (s *Service) execute(ctx context.Context, job Job) (string, error) {
 			continue
 		}
 		j := &s.store.Jobs[i]
+		updated := nowMS()
 		j.State.LastRunAtMS = start
 		if err != nil {
 			j.State.LastStatus = "error"
@@ -281,7 +279,7 @@ func (s *Service) execute(ctx context.Context, job Job) (string, error) {
 			j.State.LastStatus = "ok"
 			j.State.LastError = ""
 		}
-		j.UpdatedAtMS = nowMS()
+		j.UpdatedAtMS = updated
 
 		// One-shot at: disable or delete
 		if j.Schedule.Kind == "at" {
@@ -292,7 +290,7 @@ func (s *Service) execute(ctx context.Context, job Job) (string, error) {
 				j.State.NextRunAtMS = 0
 			}
 		} else {
-			j.State.NextRunAtMS = computeNextRunMS(j.Schedule, nowMS())
+			j.State.NextRunAtMS = computeNextRunMS(j.Schedule, updated)
 		}
 		break
 	}
@@ -416,23 +414,6 @@ func validateSchedule(s Schedule, now int64) error {
 	default:
 		return fmt.Errorf("unknown schedule kind: %s", s.Kind)
 	}
-}
-
-func parseCron5(expr string) (robcron.Schedule, error) {
-	if cached, ok := cronExprCache.Load(expr); ok {
-		s, ok := cached.(robcron.Schedule)
-		if ok {
-			return s, nil
-		}
-	}
-	// Standard 5-field cron (min hour dom mon dow).
-	parser := robcron.NewParser(robcron.Minute | robcron.Hour | robcron.Dom | robcron.Month | robcron.Dow)
-	s, err := parser.Parse(expr)
-	if err != nil {
-		return nil, err
-	}
-	cronExprCache.Store(expr, s)
-	return s, nil
 }
 
 func newID() string {

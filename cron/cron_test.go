@@ -32,7 +32,6 @@ func TestServiceAdd_RejectsInvalidSchedule(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			path := filepath.Join(t.TempDir(), "cron.json")
@@ -56,5 +55,49 @@ func TestServiceAdd_AcceptsValidSchedule(t *testing.T) {
 	}
 	if job.State.NextRunAtMS <= time.Now().UnixMilli() {
 		t.Fatalf("expected next run in the future, got %d", job.State.NextRunAtMS)
+	}
+}
+
+func TestServiceAdd_AcceptsValidCronSchedule(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "cron.json")
+	svc := NewService(path, nil)
+
+	job, err := svc.Add("cron-job", Schedule{Kind: "cron", Expr: "0 9 * * 1-5"}, Payload{Kind: "agent_turn", Message: "hello"})
+	if err != nil {
+		t.Fatalf("Add returned error: %v", err)
+	}
+	if job.State.NextRunAtMS <= time.Now().UnixMilli() {
+		t.Fatalf("expected next run in the future, got %d", job.State.NextRunAtMS)
+	}
+}
+
+func TestServiceAdd_AcceptsValidAtSchedule(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "cron.json")
+	svc := NewService(path, nil)
+
+	at := time.Now().Add(2 * time.Hour).UnixMilli()
+	job, err := svc.Add("at-job", Schedule{Kind: "at", AtMS: at}, Payload{Kind: "agent_turn", Message: "hello"})
+	if err != nil {
+		t.Fatalf("Add returned error: %v", err)
+	}
+	if job.State.NextRunAtMS != at {
+		t.Fatalf("expected next run %d, got %d", at, job.State.NextRunAtMS)
+	}
+}
+
+func TestComputeNextRunMS_CronWeekday(t *testing.T) {
+	t.Parallel()
+
+	loc := time.Local
+	start := time.Date(2026, time.February, 13, 10, 0, 0, 0, loc) // Friday
+	next := computeNextRunMS(Schedule{Kind: "cron", Expr: "0 9 * * 1-5"}, start.UnixMilli())
+	got := time.UnixMilli(next).In(loc)
+	want := time.Date(2026, time.February, 16, 9, 0, 0, 0, loc) // Monday
+	if !got.Equal(want) {
+		t.Fatalf("expected %v, got %v", want, got)
 	}
 }
