@@ -97,8 +97,6 @@ Files in the workspace are automatically injected into the system prompt when pr
 - `HEARTBEAT.md`: periodic tasks
 - `memory/`: long-term and daily notes
 
-This matches the “workspace-first” style: you control behavior by editing small, versionable text files.
-
 ## Configuration (`~/.clawlet/config.json`)
 
 Config file: `~/.clawlet/config.json`
