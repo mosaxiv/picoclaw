@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -492,10 +493,8 @@ func appendUniqueTrimmed(parts []string, v string) []string {
 	if v == "" {
 		return parts
 	}
-	for _, existing := range parts {
-		if existing == v {
-			return parts
-		}
+	if slices.Contains(parts, v) {
+		return parts
 	}
 	return append(parts, v)
 }
