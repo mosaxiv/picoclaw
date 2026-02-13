@@ -107,7 +107,7 @@ func (c *Client) chatGemini(ctx context.Context, messages []Message, tools []Too
 			callCount++
 			args := part.FunctionCall.Args
 			if len(args) == 0 {
-				args = json.RawMessage([]byte("{}"))
+				args = json.RawMessage(`{}`)
 			}
 			out.ToolCalls = append(out.ToolCalls, ToolCall{
 				ID:        fmt.Sprintf("call_%d", callCount),

@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -219,7 +218,7 @@ func (l *Loop) processDirect(ctx context.Context, content, sessionKey, channel, 
 					Channel:    channel,
 					ChatID:     chatID,
 					SessionKey: sessionKey,
-				}, tc.Name, json.RawMessage(tc.Arguments))
+				}, tc.Name, tc.Arguments)
 				if err != nil {
 					out = "error: " + err.Error()
 				}

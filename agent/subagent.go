@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -115,7 +114,7 @@ func (m *SubagentManager) runSubagent(ctx context.Context, task string) (string,
 					Channel:    "cli",
 					ChatID:     "subagent",
 					SessionKey: "",
-				}, tc.Name, json.RawMessage(tc.Arguments))
+				}, tc.Name, tc.Arguments)
 				if err != nil {
 					out = "error: " + err.Error()
 				}

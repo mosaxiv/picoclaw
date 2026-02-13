@@ -99,7 +99,7 @@ func (c *Client) chatAnthropic(ctx context.Context, messages []Message, tools []
 			}
 			args := part.Input
 			if len(args) == 0 {
-				args = json.RawMessage([]byte("{}"))
+				args = json.RawMessage(`{}`)
 			}
 			out.ToolCalls = append(out.ToolCalls, ToolCall{
 				ID:        toolID,
@@ -225,14 +225,14 @@ func anthropicMessagesEndpoint(baseURL string) string {
 func parseArgsToRawJSON(s string) json.RawMessage {
 	trimmed := strings.TrimSpace(s)
 	if trimmed == "" {
-		return json.RawMessage([]byte("{}"))
+		return json.RawMessage(`{}`)
 	}
 	b := []byte(trimmed)
 	if json.Valid(b) {
-		return json.RawMessage(b)
+		return b
 	}
 	quoted, _ := json.Marshal(trimmed)
-	return json.RawMessage(quoted)
+	return quoted
 }
 
 func schemaToAny(s JSONSchema) (any, error) {

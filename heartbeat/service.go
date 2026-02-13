@@ -13,11 +13,11 @@ import (
 const (
 	DefaultIntervalSec = 30 * 60
 
-	HeartbeatPrompt = "Read HEARTBEAT.md in your workspace (if it exists).\n" +
+	DefaultPrompt = "Read HEARTBEAT.md in your workspace (if it exists).\n" +
 		"Follow any instructions or tasks listed there.\n" +
 		"If nothing needs attention, reply with just: HEARTBEAT_OK"
 
-	HeartbeatOKToken = "HEARTBEAT_OK"
+	OKToken = "HEARTBEAT_OK"
 )
 
 type Service struct {
@@ -75,7 +75,7 @@ func (s *Service) TriggerNow(ctx context.Context) (string, error) {
 	if s.onBeat == nil {
 		return "", nil
 	}
-	return s.onBeat(ctx, HeartbeatPrompt)
+	return s.onBeat(ctx, DefaultPrompt)
 }
 
 func (s *Service) loop(ctx context.Context) {
@@ -105,7 +105,7 @@ func (s *Service) tick(ctx context.Context) {
 	if isEmpty(content) {
 		return
 	}
-	resp, err := s.onBeat(ctx, HeartbeatPrompt)
+	resp, err := s.onBeat(ctx, DefaultPrompt)
 	if err != nil {
 		log.Printf("heartbeat: error: %v", err)
 		return
@@ -159,7 +159,7 @@ func isEmpty(content string) bool {
 
 func isHeartbeatOK(resp string) bool {
 	// Tolerate case/underscore/whitespace variations.
-	return strings.Contains(normalizeToken(resp), normalizeToken(HeartbeatOKToken))
+	return strings.Contains(normalizeToken(resp), normalizeToken(OKToken))
 }
 
 func truncateForLog(s string, max int) string {

@@ -95,7 +95,7 @@ func (c *Client) chatOpenAICompatible(ctx context.Context, messages []Message, t
 		if len(args) > 0 && args[0] == '"' {
 			var s string
 			if err := json.Unmarshal(args, &s); err == nil {
-				args = json.RawMessage([]byte(s))
+				args = []byte(s)
 			}
 		}
 		out.ToolCalls = append(out.ToolCalls, ToolCall{
