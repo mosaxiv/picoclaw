@@ -201,7 +201,7 @@ clawlet gateway
 <details>
 <summary><b>WhatsApp</b></summary>
 
-Uses **whatsmeow** (WhatsApp Web Multi-Device). No Meta webhook/public endpoint is required.
+Uses **WhatsApp Web Multi-Device**. No Meta webhook/public endpoint is required.
 
 1. Enable channel and (recommended) set `allowFrom`.
 2. Run login once:
