@@ -149,8 +149,9 @@ type TelegramConfig struct {
 
 // WhatsApp (whatsmeow / WhatsApp Web Multi-Device).
 type WhatsAppConfig struct {
-	Enabled   bool     `json:"enabled"`
-	AllowFrom []string `json:"allowFrom"`
+	Enabled          bool     `json:"enabled"`
+	AllowFrom        []string `json:"allowFrom"`
+	SessionStorePath string   `json:"sessionStorePath,omitempty"` // optional: sqlite store path for persistent login
 }
 
 const (
@@ -288,6 +289,7 @@ func Load(path string) (*Config, error) {
 	if cfg.Channels.Telegram.Workers <= 0 {
 		cfg.Channels.Telegram.Workers = 2
 	}
+	cfg.Channels.WhatsApp.SessionStorePath = strings.TrimSpace(cfg.Channels.WhatsApp.SessionStorePath)
 
 	// Apply model routing to populate cfg.LLM for runtime use.
 	cfg.ApplyLLMRouting()

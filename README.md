@@ -228,7 +228,8 @@ clawlet gateway
 
 Notes:
 - Send retries are applied for transient/rate-limit errors with exponential backoff.
-- Session state is runtime-only by design (non-persistent). After restart, re-link by QR scan.
+- Session state is persisted by default at `~/.clawlet/whatsapp-auth/session.db`.
+- You can override store path with `sessionStorePath` if needed.
 
 </details>
 

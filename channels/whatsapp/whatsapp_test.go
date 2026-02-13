@@ -3,6 +3,7 @@ package whatsapp
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/mosaxiv/clawlet/bus"
@@ -144,5 +145,33 @@ func TestWhatsAppSenderID(t *testing.T) {
 	got := whatsappSenderID(info)
 	if got != "15551234567|15551234567@s.whatsapp.net|15559876543" {
 		t.Fatalf("unexpected sender id: %q", got)
+	}
+}
+
+func TestResolveWhatsAppSessionStorePath(t *testing.T) {
+	t.Run("default path from home", func(t *testing.T) {
+		t.Setenv("HOME", "/tmp/clawlet-home")
+		got := resolveWhatsAppSessionStorePath("")
+		want := filepath.Join("/tmp/clawlet-home", ".clawlet", "whatsapp-auth", "session.db")
+		if got != want {
+			t.Fatalf("expected %q, got %q", want, got)
+		}
+	})
+
+	t.Run("expand tilde", func(t *testing.T) {
+		t.Setenv("HOME", "/tmp/clawlet-home")
+		got := resolveWhatsAppSessionStorePath("~/state/wa.db")
+		want := filepath.Join("/tmp/clawlet-home", "state", "wa.db")
+		if got != want {
+			t.Fatalf("expected %q, got %q", want, got)
+		}
+	})
+}
+
+func TestSQLiteFileDSN(t *testing.T) {
+	got := sqliteFileDSN("/tmp/wa/session.db")
+	want := "file:/tmp/wa/session.db?_pragma=foreign_keys(1)"
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
 	}
 }

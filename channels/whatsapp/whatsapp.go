@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -16,6 +17,7 @@ import (
 	"github.com/mosaxiv/clawlet/bus"
 	"github.com/mosaxiv/clawlet/channels"
 	"github.com/mosaxiv/clawlet/config"
+	"github.com/mosaxiv/clawlet/paths"
 	"go.mau.fi/whatsmeow"
 	waE2E "go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store/sqlstore"
@@ -32,6 +34,8 @@ type Channel struct {
 	bus   *bus.Bus
 	allow channels.AllowList
 
+	sessionStorePath string
+
 	running atomic.Bool
 
 	mu     sync.Mutex
@@ -42,9 +46,10 @@ type Channel struct {
 
 func New(cfg config.WhatsAppConfig, b *bus.Bus) *Channel {
 	return &Channel{
-		cfg:   cfg,
-		bus:   b,
-		allow: channels.AllowList{AllowFrom: cfg.AllowFrom},
+		cfg:              cfg,
+		bus:              b,
+		allow:            channels.AllowList{AllowFrom: cfg.AllowFrom},
+		sessionStorePath: resolveWhatsAppSessionStorePath(cfg.SessionStorePath),
 	}
 }
 
@@ -55,7 +60,7 @@ func (c *Channel) Start(ctx context.Context) error {
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	db, wa, err := newRuntimeClient(runCtx)
+	db, wa, err := newPersistentClient(runCtx, c.sessionStorePath)
 	if err != nil {
 		return err
 	}
@@ -215,9 +220,13 @@ func (c *Channel) handleIncomingMessage(evt *events.Message) {
 	cancel()
 }
 
-func newRuntimeClient(ctx context.Context) (*sqlstore.Container, *whatsmeow.Client, error) {
-	// Non-persistent runtime DB (session is not persisted by design).
-	dsn := "file:clawlet-whatsapp-runtime?mode=memory&cache=shared&_pragma=foreign_keys(1)"
+func newPersistentClient(ctx context.Context, sessionStorePath string) (*sqlstore.Container, *whatsmeow.Client, error) {
+	storePath := resolveWhatsAppSessionStorePath(sessionStorePath)
+	storeDir := filepath.Dir(storePath)
+	if err := os.MkdirAll(storeDir, 0o700); err != nil {
+		return nil, nil, err
+	}
+	dsn := sqliteFileDSN(storePath)
 	db, err := sqlstore.New(ctx, "sqlite", dsn, waLog.Noop)
 	if err != nil {
 		return nil, nil, err
@@ -229,6 +238,39 @@ func newRuntimeClient(ctx context.Context) (*sqlstore.Container, *whatsmeow.Clie
 	}
 	wa := whatsmeow.NewClient(store, waLog.Noop)
 	return db, wa, nil
+}
+
+func resolveWhatsAppSessionStorePath(v string) string {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		cfgDir, err := paths.ConfigDir()
+		if err != nil {
+			return filepath.Join(".clawlet", "whatsapp-auth", "session.db")
+		}
+		return filepath.Join(cfgDir, "whatsapp-auth", "session.db")
+	}
+	return expandHomePath(v)
+}
+
+func expandHomePath(v string) string {
+	if v == "~" {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			return home
+		}
+		return v
+	}
+	if strings.HasPrefix(v, "~/") {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			return filepath.Join(home, v[2:])
+		}
+	}
+	return v
+}
+
+func sqliteFileDSN(path string) string {
+	return "file:" + filepath.ToSlash(path) + "?_pragma=foreign_keys(1)"
 }
 
 func consumeWhatsAppQR(ctx context.Context, ch <-chan whatsmeow.QRChannelItem) {
