@@ -199,19 +199,13 @@ clawlet gateway
 </details>
 
 <details>
-<summary><b>WhatsApp (Cloud API)</b></summary>
+<summary><b>WhatsApp (whatsmeow)</b></summary>
 
-Uses **WhatsApp Cloud API** for outbound messages and a local webhook server for inbound events.
+Uses **whatsmeow** (WhatsApp Web Multi-Device). No Meta webhook/public endpoint is required.
 
-1. In Meta for Developers:
-   - Create/select a Meta app with WhatsApp.
-   - Get `phoneNumberId`.
-   - Get an access token.
-2. Configure webhook in Meta:
-   - Callback URL: your public URL mapped to `webhookListen + webhookPath`.
-   - Verify token: same value as `channels.whatsapp.verifyToken`.
-3. (Recommended) Set `appSecret` to validate `X-Hub-Signature-256`.
-4. (Recommended) Set `allowFrom` with trusted WhatsApp user IDs (wa_id).
+1. Enable channel and (recommended) set `allowFrom`.
+2. Start `clawlet gateway`.
+3. On first connect, scan the QR shown in terminal from WhatsApp `Linked devices`.
 
 Example config (merge into `~/.clawlet/config.json`):
 
@@ -220,13 +214,6 @@ Example config (merge into `~/.clawlet/config.json`):
   "channels": {
     "whatsapp": {
       "enabled": true,
-      "accessToken": "EAAG...",
-      "phoneNumberId": "123456789012345",
-      "apiVersion": "v24.0",
-      "verifyToken": "change-me",
-      "appSecret": "your-app-secret",
-      "webhookListen": "127.0.0.1:18791",
-      "webhookPath": "/whatsapp/webhook",
       "allowFrom": ["15551234567"]
     }
   }
@@ -240,8 +227,8 @@ clawlet gateway
 ```
 
 Notes:
-- `429` / `5xx` responses are retried with exponential backoff.
-- If Meta webhook must reach your machine, expose the webhook endpoint via a reverse proxy/tunnel and keep `verifyToken`/`appSecret` enabled.
+- Send retries are applied for transient/rate-limit errors with exponential backoff.
+- Session state is runtime-only by design (non-persistent). After restart, re-link by QR scan.
 
 </details>
 

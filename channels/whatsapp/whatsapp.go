@@ -1,34 +1,30 @@
 package whatsapp
 
 import (
-	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
+	"log"
 	"net"
-	"net/http"
-	"strconv"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/mdp/qrterminal/v3"
 	"github.com/mosaxiv/clawlet/bus"
 	"github.com/mosaxiv/clawlet/channels"
 	"github.com/mosaxiv/clawlet/config"
-)
+	"go.mau.fi/whatsmeow"
+	waE2E "go.mau.fi/whatsmeow/proto/waE2E"
+	"go.mau.fi/whatsmeow/store/sqlstore"
+	"go.mau.fi/whatsmeow/types"
+	"go.mau.fi/whatsmeow/types/events"
+	waLog "go.mau.fi/whatsmeow/util/log"
+	"google.golang.org/protobuf/proto"
 
-const (
-	defaultWhatsAppBaseURL       = "https://graph.facebook.com"
-	defaultWhatsAppAPIVersion    = "v24.0"
-	defaultWhatsAppWebhookPath   = "/whatsapp/webhook"
-	defaultWhatsAppWebhookListen = "127.0.0.1:18791"
+	_ "modernc.org/sqlite"
 )
 
 type Channel struct {
@@ -38,11 +34,10 @@ type Channel struct {
 
 	running atomic.Bool
 
-	hc *http.Client
-
 	mu     sync.Mutex
 	cancel context.CancelFunc
-	srv    *http.Server
+	wa     *whatsmeow.Client
+	db     *sqlstore.Container
 }
 
 func New(cfg config.WhatsAppConfig, b *bus.Bus) *Channel {
@@ -50,9 +45,6 @@ func New(cfg config.WhatsAppConfig, b *bus.Bus) *Channel {
 		cfg:   cfg,
 		bus:   b,
 		allow: channels.AllowList{AllowFrom: cfg.AllowFrom},
-		hc: &http.Client{
-			Timeout: 20 * time.Second,
-		},
 	}
 }
 
@@ -60,120 +52,99 @@ func (c *Channel) Name() string    { return "whatsapp" }
 func (c *Channel) IsRunning() bool { return c.running.Load() }
 
 func (c *Channel) Start(ctx context.Context) error {
-	if strings.TrimSpace(c.cfg.AccessToken) == "" {
-		return fmt.Errorf("whatsapp accessToken is empty")
-	}
-	if strings.TrimSpace(c.cfg.PhoneNumberID) == "" {
-		return fmt.Errorf("whatsapp phoneNumberId is empty")
-	}
-	if strings.TrimSpace(c.cfg.VerifyToken) == "" {
-		return fmt.Errorf("whatsapp verifyToken is empty")
-	}
-
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	db, wa, err := newRuntimeClient(runCtx)
+	if err != nil {
+		return err
+	}
+	wa.EnableAutoReconnect = true
+	wa.AddEventHandler(c.handleEvent)
+
 	c.mu.Lock()
 	c.cancel = cancel
+	c.db = db
+	c.wa = wa
 	c.mu.Unlock()
 	defer func() {
 		c.mu.Lock()
+		if c.wa == wa {
+			c.wa = nil
+		}
+		if c.db == db {
+			c.db = nil
+		}
 		c.cancel = nil
 		c.mu.Unlock()
+		wa.Disconnect()
+		_ = db.Close()
 	}()
 
-	mux := http.NewServeMux()
-	mux.HandleFunc(normalizeWebhookPath(c.cfg.WebhookPath), c.handleWebhook)
-
-	srv := &http.Server{
-		Addr:              webhookListen(c.cfg.WebhookListen),
-		Handler:           mux,
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      15 * time.Second,
-		IdleTimeout:       60 * time.Second,
+	var qrChan <-chan whatsmeow.QRChannelItem
+	if wa.Store.ID == nil {
+		qrChan, err = wa.GetQRChannel(runCtx)
+		if err != nil {
+			return err
+		}
+		go consumeWhatsAppQR(runCtx, qrChan)
 	}
 
-	c.mu.Lock()
-	c.srv = srv
-	c.mu.Unlock()
-	defer func() {
-		c.mu.Lock()
-		if c.srv == srv {
-			c.srv = nil
-		}
-		c.mu.Unlock()
-	}()
-
-	errCh := make(chan error, 1)
-	go func() {
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errCh <- err
-		}
-	}()
+	if err := wa.Connect(); err != nil {
+		return err
+	}
 
 	c.running.Store(true)
 	defer c.running.Store(false)
 
-	select {
-	case <-runCtx.Done():
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer shutdownCancel()
-		_ = srv.Shutdown(shutdownCtx)
-		return runCtx.Err()
-	case err := <-errCh:
-		return err
-	}
+	<-runCtx.Done()
+	return runCtx.Err()
 }
 
 func (c *Channel) Stop() error {
 	c.mu.Lock()
 	cancel := c.cancel
-	srv := c.srv
+	wa := c.wa
+	db := c.db
 	c.cancel = nil
-	c.srv = nil
+	c.wa = nil
+	c.db = nil
 	c.mu.Unlock()
 
 	if cancel != nil {
 		cancel()
 	}
-	if srv != nil {
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer shutdownCancel()
-		return srv.Shutdown(shutdownCtx)
+	if wa != nil {
+		wa.Disconnect()
+	}
+	if db != nil {
+		return db.Close()
 	}
 	return nil
 }
 
 func (c *Channel) Send(ctx context.Context, msg bus.OutboundMessage) error {
-	to := strings.TrimSpace(msg.ChatID)
-	if to == "" {
-		return fmt.Errorf("chat_id is empty")
+	to, err := parseWhatsAppChatID(msg.ChatID)
+	if err != nil {
+		return err
 	}
-	content := strings.TrimSpace(msg.Content)
-	if content == "" {
+	text := strings.TrimSpace(msg.Content)
+	if text == "" {
 		return nil
 	}
 
-	req := whatsappSendRequest{
-		MessagingProduct: "whatsapp",
-		RecipientType:    "individual",
-		To:               to,
-		Type:             "text",
-		Text: &whatsappText{
-			Body:       content,
-			PreviewURL: false,
-		},
+	c.mu.Lock()
+	wa := c.wa
+	c.mu.Unlock()
+	if wa == nil {
+		return fmt.Errorf("whatsapp not connected")
 	}
-	if replyID := resolveWhatsAppReplyTarget(msg); replyID != "" {
-		req.Context = &whatsappContext{MessageID: replyID}
-	}
-	return c.sendMessage(ctx, req)
-}
 
-func (c *Channel) sendMessage(ctx context.Context, payload whatsappSendRequest) error {
+	payload := buildOutboundMessage(text, resolveWhatsAppReplyTarget(msg))
+
 	const maxAttempts = 3
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		err := c.sendMessageOnce(ctx, payload)
+		_, err = wa.SendMessage(ctx, to, payload)
 		if err == nil {
 			return nil
 		}
@@ -192,129 +163,140 @@ func (c *Channel) sendMessage(ctx context.Context, payload whatsappSendRequest) 
 	return nil
 }
 
-func (c *Channel) sendMessageOnce(ctx context.Context, payload whatsappSendRequest) error {
-	baseURL := strings.TrimRight(strings.TrimSpace(c.cfg.BaseURL), "/")
-	if baseURL == "" {
-		baseURL = defaultWhatsAppBaseURL
+func (c *Channel) handleEvent(raw any) {
+	switch evt := raw.(type) {
+	case *events.Message:
+		c.handleIncomingMessage(evt)
+	case *events.LoggedOut:
+		log.Printf("whatsapp: logged out")
+	case *events.Connected:
+		log.Printf("whatsapp: connected")
+	case *events.Disconnected:
+		log.Printf("whatsapp: disconnected")
 	}
-	version := strings.TrimSpace(c.cfg.APIVersion)
-	if version == "" {
-		version = defaultWhatsAppAPIVersion
-	}
-	endpoint := baseURL + "/" + version + "/" + strings.TrimSpace(c.cfg.PhoneNumberID) + "/messages"
+}
 
-	b, err := json.Marshal(payload)
-	if err != nil {
-		return err
+func (c *Channel) handleIncomingMessage(evt *events.Message) {
+	if evt == nil || evt.Message == nil {
+		return
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(b))
-	if err != nil {
-		return err
+	if evt.Info.IsFromMe {
+		return
 	}
-	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(c.cfg.AccessToken))
-	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.hc.Do(req)
-	if err != nil {
-		return err
+	senderID := whatsappSenderID(evt.Info)
+	if !c.allow.Allowed(senderID) {
+		return
 	}
-	defer resp.Body.Close()
 
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil {
-		return err
+	content := whatsappMessageContent(evt.Message)
+	if content == "" {
+		return
 	}
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return &whatsappHTTPError{
-			StatusCode: resp.StatusCode,
-			RetryAfter: parseRetryAfter(resp.Header.Get("Retry-After")),
-			Body:       strings.TrimSpace(string(raw)),
+
+	chatID := evt.Info.Chat.String()
+	delivery := bus.Delivery{
+		MessageID: strings.TrimSpace(evt.Info.ID),
+		IsDirect:  !evt.Info.IsGroup,
+	}
+	if replyToID := whatsappReplyToID(evt.Message); replyToID != "" {
+		delivery.ReplyToID = replyToID
+	}
+
+	publishCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	_ = c.bus.PublishInbound(publishCtx, bus.InboundMessage{
+		Channel:    "whatsapp",
+		SenderID:   senderID,
+		ChatID:     chatID,
+		Content:    content,
+		SessionKey: "whatsapp:" + chatID,
+		Delivery:   delivery,
+	})
+	cancel()
+}
+
+func newRuntimeClient(ctx context.Context) (*sqlstore.Container, *whatsmeow.Client, error) {
+	// Non-persistent runtime DB (session is not persisted by design).
+	dsn := "file:clawlet-whatsapp-runtime?mode=memory&cache=shared&_pragma=foreign_keys(1)"
+	db, err := sqlstore.New(ctx, "sqlite", dsn, waLog.Noop)
+	if err != nil {
+		return nil, nil, err
+	}
+	store, err := db.GetFirstDevice(ctx)
+	if err != nil {
+		_ = db.Close()
+		return nil, nil, err
+	}
+	wa := whatsmeow.NewClient(store, waLog.Noop)
+	return db, wa, nil
+}
+
+func consumeWhatsAppQR(ctx context.Context, ch <-chan whatsmeow.QRChannelItem) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case item, ok := <-ch:
+			if !ok {
+				return
+			}
+			if item.Event == whatsmeow.QRChannelEventCode {
+				log.Printf("whatsapp: scan QR code with Linked Devices")
+				qrterminal.GenerateHalfBlock(item.Code, qrterminal.L, os.Stdout)
+				continue
+			}
+			if item.Event == whatsmeow.QRChannelEventError {
+				log.Printf("whatsapp: qr error: %v", item.Error)
+				continue
+			}
+			log.Printf("whatsapp: qr event: %s", item.Event)
 		}
 	}
-	return nil
 }
 
-func (c *Channel) handleWebhook(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		c.handleVerify(w, r)
-	case http.MethodPost:
-		c.handleInbound(w, r)
-	default:
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func (c *Channel) handleVerify(w http.ResponseWriter, r *http.Request) {
-	verifyToken := strings.TrimSpace(c.cfg.VerifyToken)
-	mode := strings.TrimSpace(r.URL.Query().Get("hub.mode"))
-	token := strings.TrimSpace(r.URL.Query().Get("hub.verify_token"))
-	challenge := r.URL.Query().Get("hub.challenge")
-
-	if mode != "subscribe" || token == "" || token != verifyToken {
-		http.Error(w, "forbidden", http.StatusForbidden)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	_, _ = io.WriteString(w, challenge)
-}
-
-func (c *Channel) handleInbound(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(io.LimitReader(r.Body, 2<<20))
-	if err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-	if !verifyWhatsAppSignature(strings.TrimSpace(c.cfg.AppSecret), body, r.Header.Get("X-Hub-Signature-256")) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	var payload whatsappWebhookPayload
-	if err := json.Unmarshal(body, &payload); err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-
-	events := extractWhatsAppInboundMessages(payload)
-	for _, evt := range events {
-		if !c.allow.Allowed(evt.SenderID) {
-			continue
-		}
-		publishCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		_ = c.bus.PublishInbound(publishCtx, bus.InboundMessage{
-			Channel:    "whatsapp",
-			SenderID:   evt.SenderID,
-			ChatID:     evt.ChatID,
-			Content:    evt.Content,
-			SessionKey: "whatsapp:" + evt.ChatID,
-			Delivery:   evt.Delivery,
-		})
-		cancel()
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = io.WriteString(w, `{"status":"ok"}`)
-}
-
-func webhookListen(v string) string {
+func parseWhatsAppChatID(v string) (types.JID, error) {
 	v = strings.TrimSpace(v)
 	if v == "" {
-		return defaultWhatsAppWebhookListen
+		return types.EmptyJID, fmt.Errorf("chat_id is empty")
 	}
-	return v
+	if strings.Contains(v, "@") {
+		jid, err := types.ParseJID(v)
+		if err != nil {
+			return types.EmptyJID, err
+		}
+		return jid, nil
+	}
+	phone := normalizePhone(v)
+	if phone == "" {
+		return types.EmptyJID, fmt.Errorf("chat_id is invalid: %q", v)
+	}
+	return types.NewJID(phone, types.DefaultUserServer), nil
 }
 
-func normalizeWebhookPath(path string) string {
-	path = strings.TrimSpace(path)
-	if path == "" {
-		return defaultWhatsAppWebhookPath
+func normalizePhone(v string) string {
+	v = strings.TrimSpace(v)
+	v = strings.TrimPrefix(v, "+")
+	var b strings.Builder
+	for _, r := range v {
+		if r >= '0' && r <= '9' {
+			b.WriteRune(r)
+		}
 	}
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
+	return b.String()
+}
+
+func buildOutboundMessage(text, replyToID string) *waE2E.Message {
+	if strings.TrimSpace(replyToID) != "" {
+		return &waE2E.Message{
+			ExtendedTextMessage: &waE2E.ExtendedTextMessage{
+				Text: proto.String(text),
+				ContextInfo: &waE2E.ContextInfo{
+					StanzaID: proto.String(strings.TrimSpace(replyToID)),
+				},
+			},
+		}
 	}
-	return path
+	return &waE2E.Message{Conversation: proto.String(text)}
 }
 
 func resolveWhatsAppReplyTarget(msg bus.OutboundMessage) string {
@@ -330,32 +312,6 @@ func resolveWhatsAppReplyTarget(msg bus.OutboundMessage) string {
 	return ""
 }
 
-func verifyWhatsAppSignature(appSecret string, body []byte, header string) bool {
-	appSecret = strings.TrimSpace(appSecret)
-	if appSecret == "" {
-		// Allow unsigned webhooks when appSecret is not configured.
-		return true
-	}
-	const prefix = "sha256="
-	header = strings.TrimSpace(header)
-	if !strings.HasPrefix(strings.ToLower(header), prefix) {
-		return false
-	}
-	givenHex := strings.TrimSpace(header[len(prefix):])
-	given, err := hex.DecodeString(givenHex)
-	if err != nil {
-		return false
-	}
-
-	mac := hmac.New(sha256.New, []byte(appSecret))
-	mac.Write(body)
-	want := mac.Sum(nil)
-	if len(given) != len(want) {
-		return false
-	}
-	return subtle.ConstantTimeCompare(given, want) == 1
-}
-
 func shouldRetryWhatsAppSend(err error, attempt int) (bool, time.Duration) {
 	if err == nil {
 		return false, 0
@@ -363,26 +319,19 @@ func shouldRetryWhatsAppSend(err error, attempt int) (bool, time.Duration) {
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return false, 0
 	}
-
-	var httpErr *whatsappHTTPError
-	if errors.As(err, &httpErr) {
-		if httpErr.StatusCode == http.StatusTooManyRequests {
-			if httpErr.RetryAfter > 0 {
-				return true, httpErr.RetryAfter
-			}
-			return true, whatsappSendBackoff(attempt)
-		}
-		if httpErr.StatusCode >= 500 && httpErr.StatusCode <= 599 {
-			return true, whatsappSendBackoff(attempt)
-		}
-		return false, 0
+	if errors.Is(err, whatsmeow.ErrIQRateOverLimit) ||
+		errors.Is(err, whatsmeow.ErrIQInternalServerError) ||
+		errors.Is(err, whatsmeow.ErrIQServiceUnavailable) ||
+		errors.Is(err, whatsmeow.ErrIQPartialServerError) ||
+		errors.Is(err, whatsmeow.ErrMessageTimedOut) ||
+		errors.Is(err, whatsmeow.ErrNotConnected) {
+		return true, whatsappSendBackoff(attempt)
 	}
 
 	var netErr net.Error
 	if errors.As(err, &netErr) && (netErr.Timeout() || netErr.Temporary()) {
 		return true, whatsappSendBackoff(attempt)
 	}
-
 	return false, 0
 }
 
@@ -394,113 +343,61 @@ func whatsappSendBackoff(attempt int) time.Duration {
 	return 300 * time.Millisecond * time.Duration(1<<shift)
 }
 
-func parseRetryAfter(v string) time.Duration {
-	v = strings.TrimSpace(v)
-	if v == "" {
-		return 0
+func whatsappSenderID(info types.MessageInfo) string {
+	parts := make([]string, 0, 3)
+	if v := strings.TrimSpace(info.Sender.User); v != "" {
+		parts = append(parts, v)
 	}
-	secs, err := strconv.Atoi(v)
-	if err == nil && secs >= 0 {
-		return time.Duration(secs) * time.Second
+	if v := strings.TrimSpace(info.Sender.ToNonAD().String()); v != "" && !contains(parts, v) {
+		parts = append(parts, v)
 	}
-	at, err := http.ParseTime(v)
-	if err != nil {
-		return 0
+	if v := strings.TrimSpace(info.SenderAlt.User); v != "" && !contains(parts, v) {
+		parts = append(parts, v)
 	}
-	d := time.Until(at)
-	if d < 0 {
-		return 0
+	if len(parts) == 0 {
+		return ""
 	}
-	return d
+	return strings.Join(parts, "|")
 }
 
-func extractWhatsAppInboundMessages(payload whatsappWebhookPayload) []whatsappInboundEvent {
-	out := make([]whatsappInboundEvent, 0, 8)
-	if payload.Object != "whatsapp_business_account" {
-		return out
+func whatsappMessageContent(msg *waE2E.Message) string {
+	if msg == nil {
+		return ""
 	}
-
-	for _, entry := range payload.Entry {
-		for _, ch := range entry.Changes {
-			if strings.TrimSpace(ch.Field) != "messages" {
-				continue
-			}
-			for _, msg := range ch.Value.Messages {
-				content := whatsappInboundContent(msg)
-				if content == "" {
-					continue
-				}
-
-				sender := strings.TrimSpace(msg.From)
-				if sender == "" {
-					continue
-				}
-				out = append(out, whatsappInboundEvent{
-					SenderID: sender,
-					ChatID:   sender,
-					Content:  content,
-					Delivery: bus.Delivery{
-						MessageID: strings.TrimSpace(msg.ID),
-						ReplyToID: strings.TrimSpace(msg.Context.ID),
-						IsDirect:  true,
-					},
-				})
-			}
+	if v := strings.TrimSpace(msg.GetConversation()); v != "" {
+		return v
+	}
+	if ext := msg.GetExtendedTextMessage(); ext != nil {
+		if v := strings.TrimSpace(ext.GetText()); v != "" {
+			return v
 		}
 	}
-
-	return out
-}
-
-func whatsappInboundContent(msg whatsappInboundMessage) string {
-	msgType := strings.TrimSpace(msg.Type)
-	switch msgType {
-	case "text":
-		return strings.TrimSpace(msg.Text.Body)
-	case "button":
-		if txt := strings.TrimSpace(msg.Button.Text); txt != "" {
-			return txt
-		}
-		return strings.TrimSpace(msg.Button.Payload)
-	case "interactive":
-		switch strings.TrimSpace(msg.Interactive.Type) {
-		case "button_reply":
-			if t := strings.TrimSpace(msg.Interactive.ButtonReply.Title); t != "" {
-				return t
-			}
-			return strings.TrimSpace(msg.Interactive.ButtonReply.ID)
-		case "list_reply":
-			if t := strings.TrimSpace(msg.Interactive.ListReply.Title); t != "" {
-				return t
-			}
-			return strings.TrimSpace(msg.Interactive.ListReply.ID)
-		}
-	case "image":
-		caption := strings.TrimSpace(msg.Image.Caption)
-		if caption != "" {
+	if image := msg.GetImageMessage(); image != nil {
+		if caption := strings.TrimSpace(image.GetCaption()); caption != "" {
 			return "[Image] " + caption
 		}
 		return "[Image]"
-	case "video":
-		caption := strings.TrimSpace(msg.Video.Caption)
-		if caption != "" {
+	}
+	if video := msg.GetVideoMessage(); video != nil {
+		if caption := strings.TrimSpace(video.GetCaption()); caption != "" {
 			return "[Video] " + caption
 		}
 		return "[Video]"
-	case "document":
-		caption := strings.TrimSpace(msg.Document.Caption)
-		if caption != "" {
+	}
+	if doc := msg.GetDocumentMessage(); doc != nil {
+		if caption := strings.TrimSpace(doc.GetCaption()); caption != "" {
 			return "[Document] " + caption
 		}
-		name := strings.TrimSpace(msg.Document.Filename)
-		if name != "" {
+		if name := strings.TrimSpace(doc.GetFileName()); name != "" {
 			return "[Document] " + name
 		}
 		return "[Document]"
-	case "audio":
+	}
+	if msg.GetAudioMessage() != nil {
 		return "[Voice Message]"
-	case "reaction":
-		if emoji := strings.TrimSpace(msg.Reaction.Emoji); emoji != "" {
+	}
+	if react := msg.GetReactionMessage(); react != nil {
+		if emoji := strings.TrimSpace(react.GetText()); emoji != "" {
 			return "[Reaction] " + emoji
 		}
 		return "[Reaction]"
@@ -508,109 +405,23 @@ func whatsappInboundContent(msg whatsappInboundMessage) string {
 	return ""
 }
 
-type whatsappSendRequest struct {
-	MessagingProduct string           `json:"messaging_product"`
-	RecipientType    string           `json:"recipient_type,omitempty"`
-	To               string           `json:"to"`
-	Type             string           `json:"type"`
-	Text             *whatsappText    `json:"text,omitempty"`
-	Context          *whatsappContext `json:"context,omitempty"`
-}
-
-type whatsappText struct {
-	Body       string `json:"body"`
-	PreviewURL bool   `json:"preview_url,omitempty"`
-}
-
-type whatsappContext struct {
-	MessageID string `json:"message_id"`
-}
-
-type whatsappWebhookPayload struct {
-	Object string                 `json:"object"`
-	Entry  []whatsappWebhookEntry `json:"entry"`
-}
-
-type whatsappWebhookEntry struct {
-	Changes []whatsappWebhookChange `json:"changes"`
-}
-
-type whatsappWebhookChange struct {
-	Field string              `json:"field"`
-	Value whatsappChangeValue `json:"value"`
-}
-
-type whatsappChangeValue struct {
-	Messages []whatsappInboundMessage `json:"messages"`
-}
-
-type whatsappInboundMessage struct {
-	From        string                 `json:"from"`
-	ID          string                 `json:"id"`
-	Type        string                 `json:"type"`
-	Text        whatsappInboundText    `json:"text"`
-	Button      whatsappInboundButton  `json:"button"`
-	Interactive whatsappInteractive    `json:"interactive"`
-	Image       whatsappMediaPayload   `json:"image"`
-	Video       whatsappMediaPayload   `json:"video"`
-	Document    whatsappDocument       `json:"document"`
-	Reaction    whatsappInboundReact   `json:"reaction"`
-	Context     whatsappInboundContext `json:"context"`
-}
-
-type whatsappInboundText struct {
-	Body string `json:"body"`
-}
-
-type whatsappInboundButton struct {
-	Text    string `json:"text"`
-	Payload string `json:"payload"`
-}
-
-type whatsappInteractive struct {
-	Type        string                   `json:"type"`
-	ButtonReply whatsappInteractiveReply `json:"button_reply"`
-	ListReply   whatsappInteractiveReply `json:"list_reply"`
-}
-
-type whatsappInteractiveReply struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
-}
-
-type whatsappMediaPayload struct {
-	Caption string `json:"caption"`
-}
-
-type whatsappDocument struct {
-	Caption  string `json:"caption"`
-	Filename string `json:"filename"`
-}
-
-type whatsappInboundReact struct {
-	Emoji string `json:"emoji"`
-}
-
-type whatsappInboundContext struct {
-	ID string `json:"id"`
-}
-
-type whatsappInboundEvent struct {
-	SenderID string
-	ChatID   string
-	Content  string
-	Delivery bus.Delivery
-}
-
-type whatsappHTTPError struct {
-	StatusCode int
-	RetryAfter time.Duration
-	Body       string
-}
-
-func (e *whatsappHTTPError) Error() string {
-	if e == nil {
+func whatsappReplyToID(msg *waE2E.Message) string {
+	if msg == nil {
 		return ""
 	}
-	return fmt.Sprintf("whatsapp send status %d: %s", e.StatusCode, e.Body)
+	if ext := msg.GetExtendedTextMessage(); ext != nil {
+		if ctx := ext.GetContextInfo(); ctx != nil {
+			return strings.TrimSpace(ctx.GetStanzaID())
+		}
+	}
+	return ""
+}
+
+func contains(vals []string, v string) bool {
+	for _, existing := range vals {
+		if existing == v {
+			return true
+		}
+	}
+	return false
 }
