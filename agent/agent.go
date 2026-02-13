@@ -103,9 +103,10 @@ func New(opts Options) (*Agent, error) {
 
 func (a *Agent) Process(ctx context.Context, input string) (string, error) {
 	sys := a.systemPrompt()
-	messages := make([]llm.Message, 0, 1+len(a.sess.Messages)+1)
+	history := a.sess.History(50)
+	messages := make([]llm.Message, 0, 1+len(history)+1)
 	messages = append(messages, llm.Message{Role: "system", Content: sys})
-	for _, m := range a.sess.History(50) {
+	for _, m := range history {
 		messages = append(messages, llm.Message{Role: m.Role, Content: m.Content})
 	}
 	messages = append(messages, llm.Message{Role: "user", Content: input})

@@ -189,10 +189,11 @@ func (l *Loop) processDirect(ctx context.Context, content, sessionKey, channel, 
 		return "", err
 	}
 
-	messages := make([]llm.Message, 0, 1+len(sess.Messages)+1)
+	history := sess.History(50)
+	messages := make([]llm.Message, 0, 1+len(history)+1)
 	system := l.buildSystemPrompt(channel, chatID)
 	messages = append(messages, llm.Message{Role: "system", Content: system})
-	for _, m := range sess.History(50) {
+	for _, m := range history {
 		messages = append(messages, llm.Message{Role: m.Role, Content: m.Content})
 	}
 	messages = append(messages, llm.Message{Role: "user", Content: content})
