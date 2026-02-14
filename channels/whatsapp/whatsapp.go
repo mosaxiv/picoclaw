@@ -26,7 +26,7 @@ import (
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
 
-	_ "modernc.org/sqlite"
+	_ "github.com/mosaxiv/clawlet/internal/sqlite3"
 )
 
 type Channel struct {
@@ -268,7 +268,7 @@ func openPersistentStore(ctx context.Context, sessionStorePath string) (*sqlstor
 		return nil, err
 	}
 	dsn := sqliteFileDSN(storePath)
-	db, err := sqlstore.New(ctx, "sqlite", dsn, waLog.Noop)
+	db, err := sqlstore.New(ctx, "sqlite3", dsn, waLog.Noop)
 	if err != nil {
 		return nil, err
 	}
