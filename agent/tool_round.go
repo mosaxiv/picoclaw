@@ -35,5 +35,5 @@ func appendToolRound(
 		})
 	}
 
-	return append(messages, llm.Message{Role: "user", Content: reflectOnToolResultsPrompt})
+	return append(messages, llm.Message{Role: "user", Content: "Reflect on the results and decide next steps."})
 }
