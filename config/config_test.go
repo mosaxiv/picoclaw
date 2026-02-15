@@ -13,6 +13,15 @@ func TestAgentDefaults_MaxTokensTemperature(t *testing.T) {
 	if cfg.Agents.Defaults.MemoryWindowValue() != DefaultAgentMemoryWindow {
 		t.Fatalf("memoryWindow=%d", cfg.Agents.Defaults.MemoryWindowValue())
 	}
+	if cfg.Agents.Defaults.MemorySearch.EnabledValue() {
+		t.Fatalf("memorySearch.enabled should be false by default")
+	}
+	if cfg.Agents.Defaults.MemorySearch.Chunking.Tokens != DefaultMemorySearchChunkTokens {
+		t.Fatalf("memorySearch.chunking.tokens=%d", cfg.Agents.Defaults.MemorySearch.Chunking.Tokens)
+	}
+	if cfg.Agents.Defaults.MemorySearch.Query.MaxResults != DefaultMemorySearchMaxResults {
+		t.Fatalf("memorySearch.query.maxResults=%d", cfg.Agents.Defaults.MemorySearch.Query.MaxResults)
+	}
 
 	cfg.Agents.Defaults.MaxTokens = 2048
 	cfg.Agents.Defaults.MemoryWindow = 80
@@ -26,6 +35,42 @@ func TestAgentDefaults_MaxTokensTemperature(t *testing.T) {
 	}
 	if cfg.Agents.Defaults.MemoryWindowValue() != 80 {
 		t.Fatalf("memoryWindow=%d", cfg.Agents.Defaults.MemoryWindowValue())
+	}
+}
+
+func TestLoad_MemorySearchDefaultsAndClamp(t *testing.T) {
+	cfg := Default()
+	enabled := true
+	cfg.Agents.Defaults.MemorySearch.Enabled = &enabled
+	cfg.Agents.Defaults.MemorySearch.Provider = ""
+	cfg.Agents.Defaults.MemorySearch.Chunking.Tokens = 10
+	cfg.Agents.Defaults.MemorySearch.Chunking.Overlap = 99
+	cfg.Agents.Defaults.MemorySearch.Query.MaxResults = 0
+	minScore := 2.0
+	cfg.Agents.Defaults.MemorySearch.Query.MinScore = &minScore
+
+	tmp := t.TempDir() + "/cfg.json"
+	if err := Save(tmp, cfg); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	loaded, err := Load(tmp)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if loaded.Agents.Defaults.MemorySearch.Provider != "openai" {
+		t.Fatalf("provider=%q", loaded.Agents.Defaults.MemorySearch.Provider)
+	}
+	if loaded.Agents.Defaults.MemorySearch.Chunking.Overlap != 9 {
+		t.Fatalf("overlap=%d", loaded.Agents.Defaults.MemorySearch.Chunking.Overlap)
+	}
+	if loaded.Agents.Defaults.MemorySearch.Query.MaxResults != DefaultMemorySearchMaxResults {
+		t.Fatalf("maxResults=%d", loaded.Agents.Defaults.MemorySearch.Query.MaxResults)
+	}
+	if loaded.Agents.Defaults.MemorySearch.Query.MinScore == nil {
+		t.Fatalf("minScore is nil")
+	}
+	if *loaded.Agents.Defaults.MemorySearch.Query.MinScore != 1.0 {
+		t.Fatalf("minScore=%f", *loaded.Agents.Defaults.MemorySearch.Query.MinScore)
 	}
 }
 

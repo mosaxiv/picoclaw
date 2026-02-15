@@ -35,10 +35,11 @@ type AgentsConfig struct {
 }
 
 type AgentDefaultsConfig struct {
-	Model        string   `json:"model"`
-	MaxTokens    int      `json:"maxTokens,omitempty"`
-	Temperature  *float64 `json:"temperature,omitempty"`
-	MemoryWindow int      `json:"memoryWindow,omitempty"`
+	Model        string             `json:"model"`
+	MaxTokens    int                `json:"maxTokens,omitempty"`
+	Temperature  *float64           `json:"temperature,omitempty"`
+	MemoryWindow int                `json:"memoryWindow,omitempty"`
+	MemorySearch MemorySearchConfig `json:"memorySearch"`
 }
 
 func (c AgentDefaultsConfig) MaxTokensValue() int {
@@ -60,6 +61,90 @@ func (c AgentDefaultsConfig) MemoryWindowValue() int {
 		return DefaultAgentMemoryWindow
 	}
 	return c.MemoryWindow
+}
+
+type MemorySearchConfig struct {
+	Enabled *bool `json:"enabled,omitempty"`
+
+	Provider string `json:"provider,omitempty"` // currently openai-compatible
+	Model    string `json:"model,omitempty"`
+
+	Remote MemorySearchRemoteConfig `json:"remote"`
+	Store  MemorySearchStoreConfig  `json:"store"`
+
+	Chunking MemorySearchChunkingConfig `json:"chunking"`
+	Query    MemorySearchQueryConfig    `json:"query"`
+	Cache    MemorySearchCacheConfig    `json:"cache"`
+	Sync     MemorySearchSyncConfig     `json:"sync"`
+}
+
+func (c MemorySearchConfig) EnabledValue() bool {
+	if c.Enabled == nil {
+		return false
+	}
+	return *c.Enabled
+}
+
+type MemorySearchRemoteConfig struct {
+	BaseURL string            `json:"baseURL,omitempty"`
+	APIKey  string            `json:"apiKey,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
+}
+
+type MemorySearchStoreConfig struct {
+	Path   string                        `json:"path,omitempty"`
+	Vector MemorySearchVectorStoreConfig `json:"vector"`
+}
+
+type MemorySearchVectorStoreConfig struct {
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+func (c MemorySearchVectorStoreConfig) EnabledValue() bool {
+	if c.Enabled == nil {
+		return true
+	}
+	return *c.Enabled
+}
+
+type MemorySearchChunkingConfig struct {
+	Tokens  int `json:"tokens,omitempty"`
+	Overlap int `json:"overlap,omitempty"`
+}
+
+type MemorySearchQueryConfig struct {
+	MaxResults int                      `json:"maxResults,omitempty"`
+	MinScore   *float64                 `json:"minScore,omitempty"`
+	Hybrid     MemorySearchHybridConfig `json:"hybrid"`
+}
+
+type MemorySearchHybridConfig struct {
+	VectorWeight        *float64 `json:"vectorWeight,omitempty"`
+	TextWeight          *float64 `json:"textWeight,omitempty"`
+	CandidateMultiplier int      `json:"candidateMultiplier,omitempty"`
+}
+
+type MemorySearchCacheConfig struct {
+	Enabled    *bool `json:"enabled,omitempty"`
+	MaxEntries int   `json:"maxEntries,omitempty"`
+}
+
+func (c MemorySearchCacheConfig) EnabledValue() bool {
+	if c.Enabled == nil {
+		return true
+	}
+	return *c.Enabled
+}
+
+type MemorySearchSyncConfig struct {
+	OnSearch *bool `json:"onSearch,omitempty"`
+}
+
+func (c MemorySearchSyncConfig) OnSearchValue() bool {
+	if c.OnSearch == nil {
+		return true
+	}
+	return *c.OnSearch
 }
 
 type ToolsConfig struct {
@@ -163,25 +248,74 @@ type WhatsAppConfig struct {
 }
 
 const (
-	DefaultAgentMaxTokens    = 8192
-	DefaultAgentTemperature  = 0.7
-	DefaultAgentMemoryWindow = 50
-	DefaultOpenAIBaseURL     = "https://api.openai.com/v1"
-	DefaultOpenRouterBaseURL = "https://openrouter.ai/api/v1"
-	DefaultAnthropicBaseURL  = "https://api.anthropic.com"
-	DefaultGeminiBaseURL     = "https://generativelanguage.googleapis.com/v1beta"
-	DefaultOllamaBaseURL     = "http://localhost:11434/v1"
+	DefaultAgentMaxTokens                  = 8192
+	DefaultAgentTemperature                = 0.7
+	DefaultAgentMemoryWindow               = 50
+	DefaultMemorySearchChunkTokens         = 400
+	DefaultMemorySearchChunkOverlap        = 80
+	DefaultMemorySearchMaxResults          = 6
+	DefaultMemorySearchMinScore            = 0.35
+	DefaultMemorySearchHybridVectorWeight  = 0.7
+	DefaultMemorySearchHybridTextWeight    = 0.3
+	DefaultMemorySearchCandidateMultiplier = 4
+	DefaultOpenAIBaseURL                   = "https://api.openai.com/v1"
+	DefaultOpenRouterBaseURL               = "https://openrouter.ai/api/v1"
+	DefaultAnthropicBaseURL                = "https://api.anthropic.com"
+	DefaultGeminiBaseURL                   = "https://generativelanguage.googleapis.com/v1beta"
+	DefaultOllamaBaseURL                   = "http://localhost:11434/v1"
 )
 
 func Default() *Config {
 	restrict := true
 	cronEnabled := true
 	hbEnabled := true
+	memSearchEnabled := false
+	memSearchVectorEnabled := true
+	memSearchCacheEnabled := true
+	memSearchOnSearch := true
+	memSearchMinScore := DefaultMemorySearchMinScore
+	memSearchVectorWeight := DefaultMemorySearchHybridVectorWeight
+	memSearchTextWeight := DefaultMemorySearchHybridTextWeight
 	return &Config{
 		Env: map[string]string{},
 		Agents: AgentsConfig{Defaults: AgentDefaultsConfig{
 			Model:        "openrouter/openai/gpt-4o-mini",
 			MemoryWindow: DefaultAgentMemoryWindow,
+			MemorySearch: MemorySearchConfig{
+				Enabled:  &memSearchEnabled,
+				Provider: "openai",
+				Remote: MemorySearchRemoteConfig{
+					BaseURL: "",
+					APIKey:  "",
+					Headers: map[string]string{},
+				},
+				Store: MemorySearchStoreConfig{
+					Path: "",
+					Vector: MemorySearchVectorStoreConfig{
+						Enabled: &memSearchVectorEnabled,
+					},
+				},
+				Chunking: MemorySearchChunkingConfig{
+					Tokens:  DefaultMemorySearchChunkTokens,
+					Overlap: DefaultMemorySearchChunkOverlap,
+				},
+				Query: MemorySearchQueryConfig{
+					MaxResults: DefaultMemorySearchMaxResults,
+					MinScore:   &memSearchMinScore,
+					Hybrid: MemorySearchHybridConfig{
+						VectorWeight:        &memSearchVectorWeight,
+						TextWeight:          &memSearchTextWeight,
+						CandidateMultiplier: DefaultMemorySearchCandidateMultiplier,
+					},
+				},
+				Cache: MemorySearchCacheConfig{
+					Enabled:    &memSearchCacheEnabled,
+					MaxEntries: 0,
+				},
+				Sync: MemorySearchSyncConfig{
+					OnSearch: &memSearchOnSearch,
+				},
+			},
 		}},
 		LLM: LLMConfig{
 			Provider: "",
@@ -277,6 +411,61 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.Gateway.Listen == "" {
 		cfg.Gateway.Listen = "0.0.0.0:18790"
+	}
+	if cfg.Agents.Defaults.MemorySearch.Enabled == nil {
+		v := false
+		cfg.Agents.Defaults.MemorySearch.Enabled = &v
+	}
+	if strings.TrimSpace(cfg.Agents.Defaults.MemorySearch.Provider) == "" {
+		cfg.Agents.Defaults.MemorySearch.Provider = "openai"
+	}
+	if cfg.Agents.Defaults.MemorySearch.Remote.Headers == nil {
+		cfg.Agents.Defaults.MemorySearch.Remote.Headers = map[string]string{}
+	}
+	if cfg.Agents.Defaults.MemorySearch.Store.Vector.Enabled == nil {
+		v := true
+		cfg.Agents.Defaults.MemorySearch.Store.Vector.Enabled = &v
+	}
+	if cfg.Agents.Defaults.MemorySearch.Chunking.Tokens <= 0 {
+		cfg.Agents.Defaults.MemorySearch.Chunking.Tokens = DefaultMemorySearchChunkTokens
+	}
+	if cfg.Agents.Defaults.MemorySearch.Chunking.Overlap < 0 {
+		cfg.Agents.Defaults.MemorySearch.Chunking.Overlap = 0
+	}
+	if cfg.Agents.Defaults.MemorySearch.Chunking.Overlap >= cfg.Agents.Defaults.MemorySearch.Chunking.Tokens {
+		cfg.Agents.Defaults.MemorySearch.Chunking.Overlap = cfg.Agents.Defaults.MemorySearch.Chunking.Tokens - 1
+	}
+	if cfg.Agents.Defaults.MemorySearch.Query.MaxResults <= 0 {
+		cfg.Agents.Defaults.MemorySearch.Query.MaxResults = DefaultMemorySearchMaxResults
+	}
+	if cfg.Agents.Defaults.MemorySearch.Query.MinScore == nil {
+		v := DefaultMemorySearchMinScore
+		cfg.Agents.Defaults.MemorySearch.Query.MinScore = &v
+	} else if *cfg.Agents.Defaults.MemorySearch.Query.MinScore < 0 {
+		v := 0.0
+		cfg.Agents.Defaults.MemorySearch.Query.MinScore = &v
+	} else if *cfg.Agents.Defaults.MemorySearch.Query.MinScore > 1 {
+		v := 1.0
+		cfg.Agents.Defaults.MemorySearch.Query.MinScore = &v
+	}
+	if cfg.Agents.Defaults.MemorySearch.Query.Hybrid.VectorWeight == nil {
+		v := DefaultMemorySearchHybridVectorWeight
+		cfg.Agents.Defaults.MemorySearch.Query.Hybrid.VectorWeight = &v
+	}
+	if cfg.Agents.Defaults.MemorySearch.Query.Hybrid.TextWeight == nil {
+		v := DefaultMemorySearchHybridTextWeight
+		cfg.Agents.Defaults.MemorySearch.Query.Hybrid.TextWeight = &v
+	}
+	if cfg.Agents.Defaults.MemorySearch.Query.Hybrid.CandidateMultiplier <= 0 {
+		cfg.Agents.Defaults.MemorySearch.Query.Hybrid.CandidateMultiplier = DefaultMemorySearchCandidateMultiplier
+	}
+	if cfg.Agents.Defaults.MemorySearch.Cache.Enabled == nil {
+		v := true
+		cfg.Agents.Defaults.MemorySearch.Cache.Enabled = &v
+	}
+	if cfg.Agents.Defaults.MemorySearch.Sync.OnSearch == nil {
+		v := true
+		cfg.Agents.Defaults.MemorySearch.Sync.OnSearch = &v
 	}
 	if cfg.Channels.Discord.GatewayURL == "" {
 		cfg.Channels.Discord.GatewayURL = "wss://gateway.discord.gg/?v=10&encoding=json"

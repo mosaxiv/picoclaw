@@ -209,3 +209,41 @@ func defCron() llm.ToolDefinition {
 		},
 	}
 }
+
+func defMemorySearch() llm.ToolDefinition {
+	return llm.ToolDefinition{
+		Type: "function",
+		Function: llm.FunctionDefinition{
+			Name:        "memory_search",
+			Description: "Semantic memory search over MEMORY.md and memory/*.md.",
+			Parameters: llm.JSONSchema{
+				Type: "object",
+				Properties: map[string]llm.JSONSchema{
+					"query":      {Type: "string"},
+					"maxResults": {Type: "integer"},
+					"minScore":   {Type: "number"},
+				},
+				Required: []string{"query"},
+			},
+		},
+	}
+}
+
+func defMemoryGet() llm.ToolDefinition {
+	return llm.ToolDefinition{
+		Type: "function",
+		Function: llm.FunctionDefinition{
+			Name:        "memory_get",
+			Description: "Read a safe snippet from MEMORY.md or memory/*.md.",
+			Parameters: llm.JSONSchema{
+				Type: "object",
+				Properties: map[string]llm.JSONSchema{
+					"path":  {Type: "string"},
+					"from":  {Type: "integer"},
+					"lines": {Type: "integer"},
+				},
+				Required: []string{"path"},
+			},
+		},
+	}
+}

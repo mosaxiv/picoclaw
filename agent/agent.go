@@ -93,6 +93,11 @@ func New(opts Options) (*Agent, error) {
 			return l.Load(name)
 		},
 	}
+	memMgr, err := memory.NewIndexManager(opts.Config, wsAbs)
+	if err != nil {
+		return nil, err
+	}
+	treg.MemorySearch = memMgr
 
 	return &Agent{
 		cfg:          opts.Config,

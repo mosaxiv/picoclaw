@@ -112,6 +112,11 @@ func NewLoop(opts LoopOptions) (*Loop, error) {
 			return sloader.Load(name)
 		},
 	}
+	memMgr, err := memory.NewIndexManager(opts.Config, ws)
+	if err != nil {
+		return nil, err
+	}
+	treg.MemorySearch = memMgr
 
 	return &Loop{
 		cfg:          opts.Config,

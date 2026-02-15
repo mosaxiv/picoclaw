@@ -11,6 +11,7 @@ import (
 	"github.com/mosaxiv/clawlet/bus"
 	"github.com/mosaxiv/clawlet/cron"
 	"github.com/mosaxiv/clawlet/llm"
+	"github.com/mosaxiv/clawlet/memory"
 )
 
 type Context struct {
@@ -28,11 +29,12 @@ type Registry struct {
 	// Unknown tool names are ignored.
 	AllowTools []string
 
-	BraveAPIKey string
-	Outbound    func(ctx context.Context, msg bus.OutboundMessage) error
-	Spawn       func(ctx context.Context, task, label, originChannel, originChatID string) (string, error)
-	Cron        *cron.Service
-	ReadSkill   func(name string) (string, bool)
+	BraveAPIKey  string
+	Outbound     func(ctx context.Context, msg bus.OutboundMessage) error
+	Spawn        func(ctx context.Context, task, label, originChannel, originChatID string) (string, error)
+	Cron         *cron.Service
+	ReadSkill    func(name string) (string, bool)
+	MemorySearch memory.SearchManager
 }
 
 func (r *Registry) Definitions() []llm.ToolDefinition {
@@ -58,6 +60,9 @@ func (r *Registry) Definitions() []llm.ToolDefinition {
 	}
 	if r.Cron != nil {
 		defs = append(defs, defCron())
+	}
+	if r.MemorySearch != nil {
+		defs = append(defs, defMemorySearch(), defMemoryGet())
 	}
 	if len(r.AllowTools) == 0 {
 		return defs
@@ -211,6 +216,26 @@ func (r *Registry) Execute(ctx context.Context, tctx Context, name string, args 
 			return "", err
 		}
 		return r.cronTool(ctx, tctx, a.Action, a.Message, a.EverySeconds, a.CronExpr, a.JobID)
+	case "memory_search":
+		var a struct {
+			Query      string   `json:"query"`
+			MaxResults *int     `json:"maxResults"`
+			MinScore   *float64 `json:"minScore"`
+		}
+		if err := json.Unmarshal(args, &a); err != nil {
+			return "", err
+		}
+		return r.memorySearch(ctx, a.Query, a.MaxResults, a.MinScore)
+	case "memory_get":
+		var a struct {
+			Path  string `json:"path"`
+			From  *int   `json:"from"`
+			Lines *int   `json:"lines"`
+		}
+		if err := json.Unmarshal(args, &a); err != nil {
+			return "", err
+		}
+		return r.memoryGet(a.Path, a.From, a.Lines)
 	default:
 		return "", fmt.Errorf("unknown tool: %s", name)
 	}
