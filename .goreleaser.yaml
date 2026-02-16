@@ -46,11 +46,16 @@ archives:
       - goos: windows
         formats: [zip]
 
-docker:
-  - image_templates:
-      - ghcr.io/{{ .Env.Owner }}/clawlet:{{ .Version }}
-      - ghcr.io/{{ .Env.Owner }}/clawlet:latest
-    dockerfile: Dockerfile
+dockers_v2:
+  - id: clawlet
+    dockerfile: Dockerfile.goreleaser
+    ids:
+      - clawlet
+    images:
+      - "ghcr.io/{{ .Env.Owner }}/clawlet"
+    tags:
+      - "{{ .Tag }}"
+      - "latest"
     platforms:
       - linux/amd64
       - linux/arm64

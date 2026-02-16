@@ -1,0 +1,15 @@
+FROM alpine:latest
+
+ARG TARGETPLATFORM
+
+RUN apk add --no-cache ca-certificates
+
+COPY $TARGETPLATFORM/clawlet /usr/local/bin/clawlet
+
+# Create config directory
+RUN mkdir -p /root/.clawlet
+
+EXPOSE 18790
+
+ENTRYPOINT ["clawlet"]
+CMD ["status"]
