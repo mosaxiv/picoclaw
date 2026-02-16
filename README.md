@@ -35,35 +35,6 @@ clawlet status
 clawlet agent -m "What is 2+2?"
 ```
 
-## Docker
-
-Run clawlet using Docker or Docker Compose instead of installing locally.
-
-### Dockerfile
-
-The Dockerfile uses a multi-stage build: it compiles the Go application with CGO enabled (for sqlite-vec), then runs it in a minimal Alpine container. The container automatically runs `clawlet onboard` and `clawlet status` on first build, then starts the gateway.
-
-### Docker Compose
-
-```bash
-docker-compose up --build
-```
-
-The gateway will be available at `http://localhost:18790`.
-
-### Plain Docker
-
-```bash
-# Build the image
-docker build -t clawlet .
-
-# Run the gateway
-docker run -e OPENROUTER_API_KEY="$OPENROUTER_API_KEY" \
-  -p 18790:18790 \
-  -v "$PWD/clawlet.config.json:/root/.clawlet/config.json" \
-  clawlet
-```
-
 ## Configuration (`~/.clawlet/config.json`)
 
 Config file: `~/.clawlet/config.json`
@@ -346,4 +317,25 @@ clawlet cron add --message "remind me" --at "2026-02-10T09:00:00Z"
 
 # Deliver to a chat (requires both --channel and --to)
 clawlet cron add --message "ping" --every 600 --channel slack --to U012345
+```
+## 🐳 Docker
+
+Build and run clawlet in a container:
+
+```bash
+# Build the image
+docker build -t clawlet .
+
+# Initialize config (first time only)
+docker run -v ~/.clawlet:/root/.clawlet --rm clawlet onboard
+
+# Edit config on host to add API keys
+vim ~/.clawlet/config.json
+
+# Run the gateway
+docker run -v ~/.clawlet:/root/.clawlet -p 18790:18790 clawlet gateway
+
+# Or run a single command
+docker run -v ~/.clawlet:/root/.clawlet --rm clawlet agent -m "Hello"
+docker run -v ~/.clawlet:/root/.clawlet --rm clawlet status
 ```
