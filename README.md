@@ -112,6 +112,25 @@ To enable semantic memory search, add `memorySearch` to the agent defaults:
 }
 ```
 
+Local embedding (Ollama / OpenAI-compatible local endpoint):
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "memorySearch": {
+        "enabled": true,
+        "provider": "openai",
+        "model": "nomic-embed-text",
+        "remote": {
+          "baseURL": "http://localhost:11434/v1"
+        }
+      }
+    }
+  }
+}
+```
+
 When enabled:
 - The agent gains `memory_search` and `memory_get` tools for retrieving past context.
 - clawlet indexes `MEMORY.md`, `memory.md`, and `memory/**/*.md` for retrieval.

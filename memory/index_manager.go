@@ -1057,7 +1057,7 @@ func resolveSearchConfig(cfg *config.Config, workspace string) (resolvedSearchCo
 	raw := cfg.Agents.Defaults.MemorySearch
 	out := resolvedSearchConfig{
 		enabled:            raw.EnabledValue(),
-		provider:           strings.ToLower(strings.TrimSpace(raw.Provider)),
+		provider:           normalizeMemorySearchProvider(raw.Provider),
 		model:              strings.TrimSpace(raw.Model),
 		baseURL:            strings.TrimSpace(raw.Remote.BaseURL),
 		apiKey:             strings.TrimSpace(raw.Remote.APIKey),
@@ -1084,32 +1084,28 @@ func resolveSearchConfig(cfg *config.Config, workspace string) (resolvedSearchCo
 	if raw.Query.Hybrid.TextWeight != nil {
 		out.hybridTextWeight = *raw.Query.Hybrid.TextWeight
 	}
-	if out.provider == "" {
-		out.provider = "openai"
-	}
 	if out.enabled {
 		if out.model == "" {
 			return out, errors.New("agents.defaults.memorySearch.model is required when enabled")
 		}
 		switch out.provider {
-		case "openai", "openrouter":
+		case "openai":
 		default:
 			return out, fmt.Errorf("unsupported memorySearch.provider: %s", out.provider)
 		}
 	}
 	if out.baseURL == "" {
-		if out.provider == "openrouter" {
-			out.baseURL = config.DefaultOpenRouterBaseURL
-		} else {
-			out.baseURL = config.DefaultOpenAIBaseURL
-		}
+		out.baseURL = config.DefaultOpenAIBaseURL
 	}
 	if out.apiKey == "" {
-		if out.provider == "openrouter" {
+		if looksLikeOpenRouterBaseURL(out.baseURL) {
 			out.apiKey = strings.TrimSpace(cfg.Env["OPENROUTER_API_KEY"])
 		}
 		if out.apiKey == "" {
 			out.apiKey = strings.TrimSpace(cfg.Env["OPENAI_API_KEY"])
+		}
+		if out.apiKey == "" {
+			out.apiKey = strings.TrimSpace(cfg.Env["OPENROUTER_API_KEY"])
 		}
 		if out.apiKey == "" {
 			out.apiKey = strings.TrimSpace(cfg.LLM.APIKey)
@@ -1150,15 +1146,25 @@ func resolveSearchConfig(cfg *config.Config, workspace string) (resolvedSearchCo
 	return out, nil
 }
 
+func looksLikeOpenRouterBaseURL(raw string) bool {
+	s := strings.ToLower(strings.TrimSpace(raw))
+	return strings.Contains(s, "openrouter.ai")
+}
+
+func normalizeMemorySearchProvider(raw string) string {
+	s := strings.ToLower(strings.TrimSpace(raw))
+	if s == "" {
+		return "openai"
+	}
+	return s
+}
+
 func (p *openAIEmbeddingProvider) EmbedBatch(ctx context.Context, texts []string) ([][]float64, error) {
 	if len(texts) == 0 {
 		return [][]float64{}, nil
 	}
 	if strings.TrimSpace(p.model) == "" {
 		return nil, errors.New("memory embedding model is empty")
-	}
-	if strings.TrimSpace(p.apiKey) == "" {
-		return nil, errors.New("memory embedding apiKey is empty")
 	}
 	endpoint := strings.TrimRight(p.baseURL, "/") + "/embeddings"
 	reqBody := map[string]any{
@@ -1171,7 +1177,9 @@ func (p *openAIEmbeddingProvider) EmbedBatch(ctx context.Context, texts []string
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	if strings.TrimSpace(p.apiKey) != "" {
+		req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	}
 	for k, v := range p.headers {
 		k = strings.TrimSpace(k)
 		if k == "" {

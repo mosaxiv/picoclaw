@@ -94,6 +94,43 @@ func TestIndexManager_SearchAndRead(t *testing.T) {
 	}
 }
 
+func TestResolveSearchConfig_OpenRouterProviderUnsupported(t *testing.T) {
+	cfg := config.Default()
+	enabled := true
+	cfg.Agents.Defaults.MemorySearch.Enabled = &enabled
+	cfg.Agents.Defaults.MemorySearch.Provider = "openrouter"
+	cfg.Agents.Defaults.MemorySearch.Model = "text-embedding-3-small"
+
+	_, err := resolveSearchConfig(cfg, t.TempDir())
+	if err == nil {
+		t.Fatalf("expected unsupported provider error")
+	}
+	if !strings.Contains(err.Error(), "unsupported memorySearch.provider") {
+		t.Fatalf("error=%v", err)
+	}
+}
+
+func TestResolveSearchConfig_OpenRouterBaseURLUsesOpenRouterKey(t *testing.T) {
+	cfg := config.Default()
+	enabled := true
+	cfg.Agents.Defaults.MemorySearch.Enabled = &enabled
+	cfg.Agents.Defaults.MemorySearch.Provider = "openai"
+	cfg.Agents.Defaults.MemorySearch.Model = "text-embedding-3-small"
+	cfg.Agents.Defaults.MemorySearch.Remote.BaseURL = config.DefaultOpenRouterBaseURL
+	cfg.Env["OPENROUTER_API_KEY"] = "sk-or-test"
+
+	got, err := resolveSearchConfig(cfg, t.TempDir())
+	if err != nil {
+		t.Fatalf("resolveSearchConfig error: %v", err)
+	}
+	if got.provider != "openai" {
+		t.Fatalf("provider=%q", got.provider)
+	}
+	if got.apiKey != "sk-or-test" {
+		t.Fatalf("apiKey=%q", got.apiKey)
+	}
+}
+
 func newEmbeddingTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -128,6 +165,53 @@ func newEmbeddingTestServer(t *testing.T) *httptest.Server {
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
 	}))
+}
+
+func TestOpenAIEmbeddingProvider_EmbedBatch_WithoutAPIKey(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/embeddings" {
+			http.NotFound(w, r)
+			return
+		}
+		if got := strings.TrimSpace(r.Header.Get("Authorization")); got != "" {
+			http.Error(w, "authorization header must be empty", http.StatusBadRequest)
+			return
+		}
+		var req struct {
+			Input []string `json:"input"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("decode req: %v", err)
+		}
+		data := make([]map[string]any, 0, len(req.Input))
+		for i, txt := range req.Input {
+			data = append(data, map[string]any{
+				"index":     i,
+				"embedding": fakeEmbedding(txt),
+			})
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
+	}))
+	defer server.Close()
+
+	p := &openAIEmbeddingProvider{
+		provider: "openai",
+		baseURL:  server.URL + "/v1",
+		apiKey:   "",
+		model:    "nomic-embed-text",
+		headers:  map[string]string{},
+		client:   server.Client(),
+	}
+	out, err := p.EmbedBatch(context.Background(), []string{"hello local embedding"})
+	if err != nil {
+		t.Fatalf("EmbedBatch error: %v", err)
+	}
+	if len(out) != 1 {
+		t.Fatalf("embedding count=%d", len(out))
+	}
+	if len(out[0]) == 0 {
+		t.Fatalf("embedding dims=%d", len(out[0]))
+	}
 }
 
 func toString(v any) string {
