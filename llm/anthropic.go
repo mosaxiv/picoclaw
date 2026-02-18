@@ -135,15 +135,15 @@ type anthropicSource struct {
 }
 
 type anthropicTool struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	InputSchema any    `json:"input_schema,omitempty"`
+	Name        string          `json:"name"`
+	Description string          `json:"description,omitempty"`
+	InputSchema json.RawMessage `json:"input_schema,omitempty"`
 }
 
 func toAnthropicTools(tools []ToolDefinition) ([]anthropicTool, error) {
 	out := make([]anthropicTool, 0, len(tools))
 	for _, t := range tools {
-		params, err := schemaToAny(t.Function.Parameters)
+		params, err := schemaToRawJSON(t.Function.Parameters)
 		if err != nil {
 			return nil, fmt.Errorf("anthropic tool schema %s: %w", t.Function.Name, err)
 		}
@@ -290,22 +290,4 @@ func parseArgsToRawJSON(s string) json.RawMessage {
 	}
 	quoted, _ := json.Marshal(trimmed)
 	return quoted
-}
-
-func schemaToAny(s JSONSchema) (any, error) {
-	b, err := json.Marshal(s)
-	if err != nil {
-		return nil, err
-	}
-	if len(bytes.TrimSpace(b)) == 0 {
-		return map[string]any{"type": "object"}, nil
-	}
-	var out any
-	if err := json.Unmarshal(b, &out); err != nil {
-		return nil, err
-	}
-	if out == nil {
-		return map[string]any{"type": "object"}, nil
-	}
-	return out, nil
 }

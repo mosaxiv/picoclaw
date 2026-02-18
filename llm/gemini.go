@@ -143,8 +143,8 @@ type geminiFunctionCall struct {
 }
 
 type geminiFunctionResponse struct {
-	Name     string `json:"name"`
-	Response any    `json:"response,omitempty"`
+	Name     string          `json:"name"`
+	Response json.RawMessage `json:"response,omitempty"`
 }
 
 type geminiTool struct {
@@ -152,9 +152,9 @@ type geminiTool struct {
 }
 
 type geminiFunctionDeclaration struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	Parameters  any    `json:"parameters,omitempty"`
+	Name        string          `json:"name"`
+	Description string          `json:"description,omitempty"`
+	Parameters  json.RawMessage `json:"parameters,omitempty"`
 }
 
 func toGeminiTools(tools []ToolDefinition) ([]geminiTool, error) {
@@ -163,7 +163,7 @@ func toGeminiTools(tools []ToolDefinition) ([]geminiTool, error) {
 	}
 	decls := make([]geminiFunctionDeclaration, 0, len(tools))
 	for _, t := range tools {
-		params, err := schemaToAny(t.Function.Parameters)
+		params, err := schemaToRawJSON(t.Function.Parameters)
 		if err != nil {
 			return nil, fmt.Errorf("gemini tool schema %s: %w", t.Function.Name, err)
 		}
@@ -277,16 +277,17 @@ func toGeminiInputParts(m Message) []geminiPart {
 	return out
 }
 
-func parseToolResponseValue(s string) any {
+func parseToolResponseValue(s string) json.RawMessage {
 	trimmed := strings.TrimSpace(s)
 	if trimmed == "" {
-		return map[string]any{}
+		return json.RawMessage(`{}`)
 	}
-	var out any
-	if err := json.Unmarshal([]byte(trimmed), &out); err == nil {
-		return out
+	b := []byte(trimmed)
+	if json.Valid(b) {
+		return json.RawMessage(b)
 	}
-	return map[string]any{"content": s}
+	fallback, _ := json.Marshal(map[string]string{"content": s})
+	return json.RawMessage(fallback)
 }
 
 func geminiGenerateContentEndpoint(baseURL, model string) string {
