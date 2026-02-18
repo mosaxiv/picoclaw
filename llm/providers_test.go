@@ -121,9 +121,12 @@ func TestToOpenAIMessages_ImagePart(t *testing.T) {
 	if len(converted) != 1 {
 		t.Fatalf("messages=%d", len(converted))
 	}
-	parts, ok := converted[0].Content.([]openAIContentPart)
-	if !ok {
-		t.Fatalf("content type=%T", converted[0].Content)
+	if converted[0].Content == nil {
+		t.Fatalf("content is nil")
+	}
+	parts := converted[0].Content.Parts
+	if len(parts) == 0 {
+		t.Fatalf("parts are empty")
 	}
 	if len(parts) != 2 {
 		t.Fatalf("parts=%d", len(parts))

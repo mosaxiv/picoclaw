@@ -109,17 +109,28 @@ func (c *Client) chatOpenAICompatible(ctx context.Context, messages []Message, t
 
 type openAIMessage struct {
 	Role       string            `json:"role"`
-	Content    any               `json:"content,omitempty"`
+	Content    *openAIContent    `json:"content,omitempty"`
 	ToolCalls  []ToolCallPayload `json:"tool_calls,omitempty"`
 	ToolCallID string            `json:"tool_call_id,omitempty"`
 	Name       string            `json:"name,omitempty"`
 }
 
+type openAIContent struct {
+	Text  string
+	Parts []openAIContentPart
+}
+
+func (c openAIContent) MarshalJSON() ([]byte, error) {
+	if len(c.Parts) > 0 {
+		return json.Marshal(c.Parts)
+	}
+	return json.Marshal(c.Text)
+}
+
 type openAIContentPart struct {
-	Type     string                 `json:"type"`
-	Text     string                 `json:"text,omitempty"`
-	ImageURL map[string]string      `json:"image_url,omitempty"`
-	Extra    map[string]interface{} `json:"-"`
+	Type     string            `json:"type"`
+	Text     string            `json:"text,omitempty"`
+	ImageURL map[string]string `json:"image_url,omitempty"`
 }
 
 func toOpenAIMessages(messages []Message) []openAIMessage {
@@ -134,12 +145,12 @@ func toOpenAIMessages(messages []Message) []openAIMessage {
 		if len(m.Parts) > 0 {
 			parts := toOpenAIContentParts(m.Parts)
 			if len(parts) > 0 {
-				item.Content = parts
+				item.Content = &openAIContent{Parts: parts}
 			} else if strings.TrimSpace(m.Content) != "" {
-				item.Content = m.Content
+				item.Content = &openAIContent{Text: m.Content}
 			}
 		} else if strings.TrimSpace(m.Content) != "" {
-			item.Content = m.Content
+			item.Content = &openAIContent{Text: m.Content}
 		}
 		out = append(out, item)
 	}

@@ -5,7 +5,9 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -274,6 +276,13 @@ func readAttachmentBytes(ctx context.Context, att bus.Attachment, maxBytes int64
 
 	reqCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSec)*time.Second)
 	defer cancel()
+	host := u.Hostname()
+	if isBlockedAttachmentHost(reqCtx, host) {
+		return nil, "", fmt.Errorf("attachment host is blocked: %s", host)
+	}
+	if hasAuthorizationHeader(att.Headers) && !isTrustedAuthorizationHost(host) {
+		return nil, "", fmt.Errorf("refusing auth header for untrusted host: %s", host)
+	}
 
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, att.URL, nil)
 	if err != nil {
@@ -287,7 +296,30 @@ func readAttachmentBytes(ctx context.Context, att bus.Attachment, maxBytes int64
 		req.Header.Set(k, v)
 	}
 
-	client := &http.Client{Timeout: time.Duration(timeoutSec) * time.Second}
+	client := &http.Client{
+		Timeout: time.Duration(timeoutSec) * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return fmt.Errorf("stopped after 5 redirects")
+			}
+			nextHost := req.URL.Hostname()
+			if isBlockedAttachmentHost(req.Context(), nextHost) {
+				return fmt.Errorf("attachment host is blocked: %s", nextHost)
+			}
+			if hasAuthorizationHeader(att.Headers) && !isTrustedAuthorizationHost(nextHost) {
+				return fmt.Errorf("refusing auth header for untrusted host: %s", nextHost)
+			}
+			if len(via) > 0 {
+				prevHost := normalizeHostname(via[len(via)-1].URL.Hostname())
+				if prevHost != normalizeHostname(nextHost) {
+					for k := range att.Headers {
+						req.Header.Del(k)
+					}
+				}
+			}
+			return nil
+		},
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, "", err
@@ -320,4 +352,82 @@ func readAttachmentBytes(ctx context.Context, att bus.Attachment, maxBytes int64
 		}
 	}
 	return body, mimeType, nil
+}
+
+func hasAuthorizationHeader(headers map[string]string) bool {
+	for k := range headers {
+		if strings.EqualFold(strings.TrimSpace(k), "authorization") {
+			return true
+		}
+	}
+	return false
+}
+
+func isTrustedAuthorizationHost(host string) bool {
+	host = normalizeHostname(host)
+	if host == "" {
+		return false
+	}
+	allowedSuffixes := []string{"slack.com", "slack-edge.com", "slack-files.com"}
+	for _, suffix := range allowedSuffixes {
+		if host == suffix || strings.HasSuffix(host, "."+suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeHostname(host string) string {
+	host = strings.ToLower(strings.TrimSpace(host))
+	host = strings.TrimSuffix(host, ".")
+	if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+		host = strings.TrimPrefix(strings.TrimSuffix(host, "]"), "[")
+	}
+	return host
+}
+
+func isBlockedAttachmentHost(ctx context.Context, host string) bool {
+	host = normalizeHostname(host)
+	if host == "" {
+		return true
+	}
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") || strings.HasSuffix(host, ".local") {
+		return true
+	}
+	if addr, err := netip.ParseAddr(host); err == nil {
+		return isPrivateAddr(addr)
+	}
+
+	lookupCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	ips, err := net.DefaultResolver.LookupIP(lookupCtx, "ip", host)
+	if err != nil || len(ips) == 0 {
+		return false
+	}
+	for _, ip := range ips {
+		addr, ok := netip.AddrFromSlice(ip)
+		if !ok {
+			continue
+		}
+		if isPrivateAddr(addr) {
+			return true
+		}
+	}
+	return false
+}
+
+func isPrivateAddr(addr netip.Addr) bool {
+	if !addr.IsValid() {
+		return true
+	}
+	if addr.IsLoopback() || addr.IsPrivate() || addr.IsMulticast() || addr.IsUnspecified() {
+		return true
+	}
+	if addr.IsLinkLocalMulticast() || addr.IsLinkLocalUnicast() {
+		return true
+	}
+	if addr.Is6() && strings.HasPrefix(addr.StringExpanded(), "fe80:") {
+		return true
+	}
+	return false
 }

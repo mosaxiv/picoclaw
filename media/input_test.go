@@ -124,3 +124,32 @@ func TestPrepareInbound_TextAttachment(t *testing.T) {
 		t.Fatalf("content=%q", got.UserMessage.Content)
 	}
 }
+
+func TestReadAttachmentBytes_BlockPrivateHost(t *testing.T) {
+	_, _, err := readAttachmentBytes(context.Background(), bus.Attachment{
+		URL:      "http://127.0.0.1/private.txt",
+		MIMEType: "text/plain",
+	}, 1024, 2)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "blocked") {
+		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestReadAttachmentBytes_RejectAuthHeaderForUntrustedHost(t *testing.T) {
+	_, _, err := readAttachmentBytes(context.Background(), bus.Attachment{
+		URL:      "https://example.com/private.txt",
+		MIMEType: "text/plain",
+		Headers: map[string]string{
+			"Authorization": "Bearer secret",
+		},
+	}, 1024, 2)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "untrusted host") {
+		t.Fatalf("err=%v", err)
+	}
+}

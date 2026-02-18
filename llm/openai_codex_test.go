@@ -159,8 +159,8 @@ func TestLoadCodexOAuthToken_FromStoredToken(t *testing.T) {
 }
 
 func TestDecodeCodexAccountID_FromNestedClaim(t *testing.T) {
-	payload := map[string]interface{}{
-		"https://api.openai.com/auth": map[string]interface{}{
+	payload := map[string]any{
+		"https://api.openai.com/auth": map[string]any{
 			"chatgpt_account_id": "acct_nested",
 		},
 	}
@@ -226,7 +226,7 @@ func TestCodexDeviceAuthIsPending(t *testing.T) {
 	}
 }
 
-func mustJSON(v interface{}) []byte {
+func mustJSON(v any) []byte {
 	b, err := json.Marshal(v)
 	if err != nil {
 		panic(err)

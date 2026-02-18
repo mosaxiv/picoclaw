@@ -173,6 +173,8 @@ Inbound channel messages can include attachments. clawlet can:
 
 Configure under `tools.media`:
 
+The values below are the current default values.
+
 ```json
 {
   "tools": {

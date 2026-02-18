@@ -58,14 +58,23 @@ func TestTranscribeAudio_Gemini(t *testing.T) {
 		if got := r.Header.Get("x-goog-api-key"); got != "g-key" {
 			t.Fatalf("api-key=%q", got)
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"candidates": []any{
-				map[string]any{
-					"content": map[string]any{
-						"parts": []any{
-							map[string]any{"text": "line1"},
-							map[string]any{"text": "line2"},
-						},
+		type part struct {
+			Text string `json:"text,omitempty"`
+		}
+		type content struct {
+			Parts []part `json:"parts"`
+		}
+		type candidate struct {
+			Content content `json:"content"`
+		}
+		type response struct {
+			Candidates []candidate `json:"candidates"`
+		}
+		_ = json.NewEncoder(w).Encode(response{
+			Candidates: []candidate{
+				{
+					Content: content{
+						Parts: []part{{Text: "line1"}, {Text: "line2"}},
 					},
 				},
 			},
