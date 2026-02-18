@@ -13,6 +13,7 @@ import (
 	"github.com/mosaxiv/clawlet/config"
 	"github.com/mosaxiv/clawlet/cron"
 	"github.com/mosaxiv/clawlet/llm"
+	"github.com/mosaxiv/clawlet/media"
 	"github.com/mosaxiv/clawlet/memory"
 	"github.com/mosaxiv/clawlet/session"
 	"github.com/mosaxiv/clawlet/skills"
@@ -164,7 +165,8 @@ func (l *Loop) Run(ctx context.Context) error {
 }
 
 func (l *Loop) ProcessDirect(ctx context.Context, content, sessionKey, channel, chatID string) (string, error) {
-	return l.processDirect(ctx, content, sessionKey, channel, chatID)
+	userText := strings.TrimSpace(content)
+	return l.processDirect(ctx, llm.Message{Role: "user", Content: content}, userText, sessionKey, channel, chatID)
 }
 
 func (l *Loop) processInbound(ctx context.Context, msg bus.InboundMessage) (string, bus.OutboundMessage, error) {
@@ -177,7 +179,7 @@ func (l *Loop) processInbound(ctx context.Context, msg bus.InboundMessage) (stri
 		}
 		// Route response back to origin session.
 		sk := originCh + ":" + originChat
-		res, err := l.processDirect(ctx, msg.Content, sk, originCh, originChat)
+		res, err := l.processDirect(ctx, llm.Message{Role: "user", Content: msg.Content}, msg.Content, sk, originCh, originChat)
 		return res, bus.OutboundMessage{Channel: originCh, ChatID: originChat, Content: res}, err
 	}
 
@@ -185,7 +187,15 @@ func (l *Loop) processInbound(ctx context.Context, msg bus.InboundMessage) (stri
 	if strings.TrimSpace(sessionKey) == "" {
 		sessionKey = msg.Channel + ":" + msg.ChatID
 	}
-	res, err := l.processDirect(ctx, msg.Content, sessionKey, msg.Channel, msg.ChatID)
+	userInput, err := media.PrepareInbound(ctx, l.llm, l.cfg.Tools.Media, msg)
+	if err != nil {
+		return "", bus.OutboundMessage{}, err
+	}
+	sessionText := strings.TrimSpace(userInput.SessionText)
+	if sessionText == "" {
+		sessionText = strings.TrimSpace(msg.Content)
+	}
+	res, err := l.processDirect(ctx, userInput.UserMessage, sessionText, sessionKey, msg.Channel, msg.ChatID)
 	return res, bus.OutboundMessage{
 		Channel:  msg.Channel,
 		ChatID:   msg.ChatID,
@@ -194,7 +204,7 @@ func (l *Loop) processInbound(ctx context.Context, msg bus.InboundMessage) (stri
 	}, err
 }
 
-func (l *Loop) processDirect(ctx context.Context, content, sessionKey, channel, chatID string) (string, error) {
+func (l *Loop) processDirect(ctx context.Context, userMessage llm.Message, sessionUserText, sessionKey, channel, chatID string) (string, error) {
 	sess, err := l.sessions.GetOrCreate(sessionKey)
 	if err != nil {
 		return "", err
@@ -208,7 +218,7 @@ func (l *Loop) processDirect(ctx context.Context, content, sessionKey, channel, 
 	for _, m := range history {
 		messages = append(messages, llm.Message{Role: m.Role, Content: m.Content})
 	}
-	messages = append(messages, llm.Message{Role: "user", Content: content})
+	messages = append(messages, userMessage)
 
 	toolsDefs := l.tools.Definitions()
 
@@ -243,7 +253,7 @@ func (l *Loop) processDirect(ctx context.Context, content, sessionKey, channel, 
 		final = "(no response)"
 	}
 
-	sess.Add("user", content)
+	sess.Add("user", sessionUserText)
 	sess.AddWithTools("assistant", final, toolsUsed)
 	_ = l.sessions.Save(sess)
 	return final, nil

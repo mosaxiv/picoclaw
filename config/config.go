@@ -148,9 +148,10 @@ func (c MemorySearchSyncConfig) OnSearchValue() bool {
 }
 
 type ToolsConfig struct {
-	RestrictToWorkspace *bool          `json:"restrictToWorkspace"`
-	Exec                ExecToolConfig `json:"exec"`
-	Web                 WebToolsConfig `json:"web"`
+	RestrictToWorkspace *bool            `json:"restrictToWorkspace"`
+	Exec                ExecToolConfig   `json:"exec"`
+	Web                 WebToolsConfig   `json:"web"`
+	Media               MediaToolsConfig `json:"media"`
 }
 
 func (c ToolsConfig) RestrictToWorkspaceValue() bool {
@@ -166,6 +167,46 @@ type ExecToolConfig struct {
 
 type WebToolsConfig struct {
 	BraveAPIKey string `json:"braveApiKey"`
+}
+
+type MediaToolsConfig struct {
+	Enabled             *bool `json:"enabled,omitempty"`
+	AudioEnabled        *bool `json:"audioEnabled,omitempty"`
+	ImageEnabled        *bool `json:"imageEnabled,omitempty"`
+	AttachmentEnabled   *bool `json:"attachmentEnabled,omitempty"`
+	MaxAttachments      int   `json:"maxAttachments,omitempty"`
+	MaxFileBytes        int64 `json:"maxFileBytes,omitempty"`
+	MaxInlineImageBytes int64 `json:"maxInlineImageBytes,omitempty"`
+	MaxTextChars        int   `json:"maxTextChars,omitempty"`
+	DownloadTimeoutSec  int   `json:"downloadTimeoutSec,omitempty"`
+}
+
+func (c MediaToolsConfig) EnabledValue() bool {
+	if c.Enabled == nil {
+		return true
+	}
+	return *c.Enabled
+}
+
+func (c MediaToolsConfig) AudioEnabledValue() bool {
+	if c.AudioEnabled == nil {
+		return true
+	}
+	return *c.AudioEnabled
+}
+
+func (c MediaToolsConfig) ImageEnabledValue() bool {
+	if c.ImageEnabled == nil {
+		return true
+	}
+	return *c.ImageEnabled
+}
+
+func (c MediaToolsConfig) AttachmentEnabledValue() bool {
+	if c.AttachmentEnabled == nil {
+		return true
+	}
+	return *c.AttachmentEnabled
 }
 
 type CronConfig struct {
@@ -264,6 +305,11 @@ const (
 	DefaultAnthropicBaseURL                = "https://api.anthropic.com"
 	DefaultGeminiBaseURL                   = "https://generativelanguage.googleapis.com/v1beta"
 	DefaultOllamaBaseURL                   = "http://localhost:11434/v1"
+	DefaultMediaMaxAttachments             = 4
+	DefaultMediaMaxFileBytes               = int64(20 << 20)
+	DefaultMediaMaxInlineImageBytes        = int64(5 << 20)
+	DefaultMediaMaxTextChars               = 12000
+	DefaultMediaDownloadTimeoutSec         = 20
 )
 
 func Default() *Config {
@@ -274,6 +320,10 @@ func Default() *Config {
 	memSearchVectorEnabled := true
 	memSearchCacheEnabled := true
 	memSearchOnSearch := true
+	mediaEnabled := true
+	mediaAudioEnabled := true
+	mediaImageEnabled := true
+	mediaAttachmentEnabled := true
 	memSearchMinScore := DefaultMemorySearchMinScore
 	memSearchVectorWeight := DefaultMemorySearchHybridVectorWeight
 	memSearchTextWeight := DefaultMemorySearchHybridTextWeight
@@ -332,6 +382,17 @@ func Default() *Config {
 			},
 			Web: WebToolsConfig{
 				BraveAPIKey: "",
+			},
+			Media: MediaToolsConfig{
+				Enabled:             &mediaEnabled,
+				AudioEnabled:        &mediaAudioEnabled,
+				ImageEnabled:        &mediaImageEnabled,
+				AttachmentEnabled:   &mediaAttachmentEnabled,
+				MaxAttachments:      DefaultMediaMaxAttachments,
+				MaxFileBytes:        DefaultMediaMaxFileBytes,
+				MaxInlineImageBytes: DefaultMediaMaxInlineImageBytes,
+				MaxTextChars:        DefaultMediaMaxTextChars,
+				DownloadTimeoutSec:  DefaultMediaDownloadTimeoutSec,
 			},
 		},
 		Cron: CronConfig{
@@ -393,6 +454,37 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.Tools.Exec.TimeoutSec <= 0 {
 		cfg.Tools.Exec.TimeoutSec = 60
+	}
+	if cfg.Tools.Media.Enabled == nil {
+		v := true
+		cfg.Tools.Media.Enabled = &v
+	}
+	if cfg.Tools.Media.AudioEnabled == nil {
+		v := true
+		cfg.Tools.Media.AudioEnabled = &v
+	}
+	if cfg.Tools.Media.ImageEnabled == nil {
+		v := true
+		cfg.Tools.Media.ImageEnabled = &v
+	}
+	if cfg.Tools.Media.AttachmentEnabled == nil {
+		v := true
+		cfg.Tools.Media.AttachmentEnabled = &v
+	}
+	if cfg.Tools.Media.MaxAttachments <= 0 {
+		cfg.Tools.Media.MaxAttachments = DefaultMediaMaxAttachments
+	}
+	if cfg.Tools.Media.MaxFileBytes <= 0 {
+		cfg.Tools.Media.MaxFileBytes = DefaultMediaMaxFileBytes
+	}
+	if cfg.Tools.Media.MaxInlineImageBytes <= 0 {
+		cfg.Tools.Media.MaxInlineImageBytes = DefaultMediaMaxInlineImageBytes
+	}
+	if cfg.Tools.Media.MaxTextChars <= 0 {
+		cfg.Tools.Media.MaxTextChars = DefaultMediaMaxTextChars
+	}
+	if cfg.Tools.Media.DownloadTimeoutSec <= 0 {
+		cfg.Tools.Media.DownloadTimeoutSec = DefaultMediaDownloadTimeoutSec
 	}
 	if cfg.Tools.RestrictToWorkspace == nil {
 		v := true

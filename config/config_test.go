@@ -224,3 +224,44 @@ func TestApplyLLMRouting_LocalAlias(t *testing.T) {
 		t.Fatalf("model=%q", cfg.LLM.Model)
 	}
 }
+
+func TestLoad_MediaDefaults(t *testing.T) {
+	cfg := Default()
+	cfg.Tools.Media = MediaToolsConfig{}
+
+	tmp := t.TempDir() + "/cfg.json"
+	if err := Save(tmp, cfg); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	loaded, err := Load(tmp)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if !loaded.Tools.Media.EnabledValue() {
+		t.Fatalf("media.enabled should default to true")
+	}
+	if !loaded.Tools.Media.AudioEnabledValue() {
+		t.Fatalf("media.audioEnabled should default to true")
+	}
+	if !loaded.Tools.Media.ImageEnabledValue() {
+		t.Fatalf("media.imageEnabled should default to true")
+	}
+	if !loaded.Tools.Media.AttachmentEnabledValue() {
+		t.Fatalf("media.attachmentEnabled should default to true")
+	}
+	if loaded.Tools.Media.MaxAttachments != DefaultMediaMaxAttachments {
+		t.Fatalf("maxAttachments=%d", loaded.Tools.Media.MaxAttachments)
+	}
+	if loaded.Tools.Media.MaxFileBytes != DefaultMediaMaxFileBytes {
+		t.Fatalf("maxFileBytes=%d", loaded.Tools.Media.MaxFileBytes)
+	}
+	if loaded.Tools.Media.MaxInlineImageBytes != DefaultMediaMaxInlineImageBytes {
+		t.Fatalf("maxInlineImageBytes=%d", loaded.Tools.Media.MaxInlineImageBytes)
+	}
+	if loaded.Tools.Media.MaxTextChars != DefaultMediaMaxTextChars {
+		t.Fatalf("maxTextChars=%d", loaded.Tools.Media.MaxTextChars)
+	}
+	if loaded.Tools.Media.DownloadTimeoutSec != DefaultMediaDownloadTimeoutSec {
+		t.Fatalf("downloadTimeoutSec=%d", loaded.Tools.Media.DownloadTimeoutSec)
+	}
+}
