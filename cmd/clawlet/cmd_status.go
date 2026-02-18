@@ -35,6 +35,7 @@ func cmdStatus() *cli.Command {
 			fmt.Printf("heartbeat.enabled: %v\n", cfg.Heartbeat.EnabledValue())
 			fmt.Printf("heartbeat.intervalSec: %d\n", cfg.Heartbeat.IntervalSec)
 			fmt.Printf("gateway.listen: %s\n", cfg.Gateway.Listen)
+			fmt.Printf("gateway.allowPublicBind: %v\n", cfg.Gateway.AllowPublicBind)
 			fmt.Printf("channels.discord.enabled: %v\n", cfg.Channels.Discord.Enabled)
 			fmt.Printf("channels.slack.enabled: %v\n", cfg.Channels.Slack.Enabled)
 			fmt.Printf("channels.telegram.enabled: %v\n", cfg.Channels.Telegram.Enabled)

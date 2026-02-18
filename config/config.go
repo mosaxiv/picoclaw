@@ -234,8 +234,11 @@ func (c HeartbeatConfig) EnabledValue() bool {
 
 type GatewayConfig struct {
 	// Listen address for HTTP endpoints needed by channels (reserved for future use).
-	// Example: "0.0.0.0:18790"
+	// Default: "127.0.0.1:18790"
 	Listen string `json:"listen"`
+	// Allow binding gateway to non-localhost addresses.
+	// Keep false unless you intentionally expose it behind a trusted tunnel/proxy.
+	AllowPublicBind bool `json:"allowPublicBind,omitempty"`
 }
 
 type ChannelsConfig struct {
@@ -403,7 +406,8 @@ func Default() *Config {
 			IntervalSec: 30 * 60,
 		},
 		Gateway: GatewayConfig{
-			Listen: "0.0.0.0:18790",
+			Listen:          "127.0.0.1:18790",
+			AllowPublicBind: false,
 		},
 		Channels: ChannelsConfig{
 			Discord: DiscordConfig{
@@ -502,8 +506,9 @@ func Load(path string) (*Config, error) {
 		v := true
 		cfg.Heartbeat.Enabled = &v
 	}
+	cfg.Gateway.Listen = strings.TrimSpace(cfg.Gateway.Listen)
 	if cfg.Gateway.Listen == "" {
-		cfg.Gateway.Listen = "0.0.0.0:18790"
+		cfg.Gateway.Listen = "127.0.0.1:18790"
 	}
 	if cfg.Agents.Defaults.MemorySearch.Enabled == nil {
 		v := false

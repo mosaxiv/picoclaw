@@ -265,3 +265,28 @@ func TestLoad_MediaDefaults(t *testing.T) {
 		t.Fatalf("downloadTimeoutSec=%d", loaded.Tools.Media.DownloadTimeoutSec)
 	}
 }
+
+func TestGatewayDefaults_LocalhostAndNoPublicBind(t *testing.T) {
+	cfg := Default()
+	if cfg.Gateway.Listen != "127.0.0.1:18790" {
+		t.Fatalf("default gateway.listen=%q", cfg.Gateway.Listen)
+	}
+	if cfg.Gateway.AllowPublicBind {
+		t.Fatalf("default gateway.allowPublicBind must be false")
+	}
+
+	tmp := t.TempDir() + "/cfg.json"
+	if err := Save(tmp, cfg); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	loaded, err := Load(tmp)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if loaded.Gateway.Listen != "127.0.0.1:18790" {
+		t.Fatalf("loaded gateway.listen=%q", loaded.Gateway.Listen)
+	}
+	if loaded.Gateway.AllowPublicBind {
+		t.Fatalf("loaded gateway.allowPublicBind must be false")
+	}
+}

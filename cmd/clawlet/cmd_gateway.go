@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/mosaxiv/clawlet/channels/slack"
 	"github.com/mosaxiv/clawlet/channels/telegram"
 	"github.com/mosaxiv/clawlet/channels/whatsapp"
+	"github.com/mosaxiv/clawlet/config"
 	"github.com/mosaxiv/clawlet/cron"
 	"github.com/mosaxiv/clawlet/heartbeat"
 	"github.com/mosaxiv/clawlet/paths"
@@ -33,6 +35,9 @@ func cmdGateway() *cli.Command {
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			cfg, _, err := loadConfig()
 			if err != nil {
+				return err
+			}
+			if err := validateGatewayBindPolicy(cfg.Gateway); err != nil {
 				return err
 			}
 
@@ -152,4 +157,43 @@ func cmdGateway() *cli.Command {
 			return nil
 		},
 	}
+}
+
+func validateGatewayBindPolicy(cfg config.GatewayConfig) error {
+	listen := strings.TrimSpace(cfg.Listen)
+	if listen == "" {
+		return nil
+	}
+	host := gatewayListenHost(listen)
+	if isLocalGatewayHost(host) || cfg.AllowPublicBind {
+		return nil
+	}
+	return fmt.Errorf(
+		"refusing public gateway bind on %q; use localhost bind, or set gateway.allowPublicBind=true only when protected by a trusted tunnel/proxy",
+		listen,
+	)
+}
+
+func gatewayListenHost(listen string) string {
+	if strings.HasPrefix(listen, ":") {
+		return ""
+	}
+	if host, _, err := net.SplitHostPort(listen); err == nil {
+		return host
+	}
+	return listen
+}
+
+func isLocalGatewayHost(host string) bool {
+	host = strings.TrimSpace(host)
+	host = strings.TrimPrefix(host, "[")
+	host = strings.TrimSuffix(host, "]")
+	switch strings.ToLower(host) {
+	case "localhost", "127.0.0.1", "::1", "0:0:0:0:0:0:0:1":
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
 }

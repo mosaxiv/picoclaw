@@ -164,6 +164,20 @@ When disabled (default):
 clawlet is conservative by default:
 
 - `tools.restrictToWorkspace` defaults to `true` (tools can only access files inside the workspace directory)
+- `gateway.listen` defaults to `127.0.0.1:18790`
+- `gateway.allowPublicBind` defaults to `false`
+
+### Security Checklist
+
+| Item | Status | Details |
+| --- | --- | --- |
+| Gateway not publicly exposed | ✅ | Default bind is localhost only. Public bind is rejected unless `gateway.allowPublicBind=true` is explicitly set. |
+| Filesystem scoped (no `/`) | ✅ | File tools block root path, path traversal, encoded traversal, symlink escapes, and sensitive state paths. |
+| Access via tunnel only | ℹ️ | clawlet has no built-in public webhook gateway. If you intentionally expose runtime endpoints in your own stack, use a trusted tunnel/proxy and keep direct public bind disabled. |
+
+Sensitive state paths blocked by file/exec safety guards:
+- `{config_dir}/auth/**`
+- `{config_dir}/whatsapp-auth/**`
 
 ### Multimodal input (audio/image/attachments)
 
@@ -395,8 +409,6 @@ services:
     image: ghcr.io/mosaxiv/clawlet:latest
     volumes:
       - ~/.clawlet:/root/.clawlet
-    ports:
-      - "18790:18790"
     command: gateway
     restart: unless-stopped
 ```
@@ -418,7 +430,7 @@ docker run -v ~/.clawlet:/root/.clawlet --rm clawlet onboard
 vim ~/.clawlet/config.json
 
 # Run the gateway
-docker run -v ~/.clawlet:/root/.clawlet -p 18790:18790 clawlet gateway
+docker run -v ~/.clawlet:/root/.clawlet clawlet gateway
 
 # Or run a single command
 docker run -v ~/.clawlet:/root/.clawlet --rm clawlet agent -m "Hello"
