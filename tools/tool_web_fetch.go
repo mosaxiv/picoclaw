@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func (r *Registry) webFetch(ctx context.Context, rawURL string, extractMode string, maxChars int) (string, error) {
+func (r *Registry) webFetch(ctx context.Context, rawURL string, extractMode string, maxChars int, headers map[string]string) (string, error) {
 	rawURL = strings.TrimSpace(rawURL)
 	if rawURL == "" {
 		return "", errors.New("url is empty")
@@ -67,6 +67,9 @@ func (r *Registry) webFetch(ctx context.Context, rawURL string, extractMode stri
 		return "", err
 	}
 	req.Header.Set("User-Agent", "clawlet/0.1")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		b, _ := json.Marshal(outT{URL: rawURL, Status: 0, Extractor: "error", Truncated: false, Length: 0, Text: "", Error: err.Error()})

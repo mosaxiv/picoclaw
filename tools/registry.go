@@ -157,14 +157,15 @@ func (r *Registry) Execute(ctx context.Context, tctx Context, name string, args 
 		return r.readSkill(a.Name)
 	case "web_fetch":
 		var a struct {
-			URL         string `json:"url"`
-			ExtractMode string `json:"extractMode"`
-			MaxChars    int    `json:"maxChars"`
+			URL         string            `json:"url"`
+			ExtractMode string            `json:"extractMode"`
+			MaxChars    int               `json:"maxChars"`
+			Headers     map[string]string `json:"headers"`
 		}
 		if err := json.Unmarshal(args, &a); err != nil {
 			return "", err
 		}
-		return r.webFetch(ctx, a.URL, a.ExtractMode, a.MaxChars)
+		return r.webFetch(ctx, a.URL, a.ExtractMode, a.MaxChars, a.Headers)
 	case "web_search":
 		var a struct {
 			Query string `json:"query"`

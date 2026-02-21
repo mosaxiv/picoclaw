@@ -1,6 +1,10 @@
 package tools
 
-import "github.com/mosaxiv/clawlet/llm"
+import (
+	"encoding/json"
+
+	"github.com/mosaxiv/clawlet/llm"
+)
 
 func defReadFile() llm.ToolDefinition {
 	return llm.ToolDefinition{
@@ -124,6 +128,9 @@ func defWebFetch() llm.ToolDefinition {
 						Enum: []string{"markdown", "text"},
 					},
 					"maxChars": {Type: "integer", Description: "Max characters in extracted text (default 50000)."},
+					"headers": {
+						Raw: json.RawMessage(`{"type":"object","description":"HTTP request headers to include (e.g. {\"Authorization\":\"Bearer token\"}).","additionalProperties":{"type":"string"}}`),
+					},
 				},
 				Required: []string{"url"},
 			},

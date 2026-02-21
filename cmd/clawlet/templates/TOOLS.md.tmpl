@@ -54,7 +54,7 @@ web_search(query: string, count?: int) -> string
 ### web_fetch
 Fetch a URL and extract readable content. Returns a JSON object string with fields like `status` and `text`.
 ```text
-web_fetch(url: string, extractMode?: "markdown"|"text", maxChars?: int) -> string
+web_fetch(url: string, extractMode?: "markdown"|"text", maxChars?: int, headers?: {string: string}) -> string
 ```
 
 Notes:
